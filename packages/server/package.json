@@ -1,0 +1,60 @@
+{
+  "name": "@atlascrew/inferno-lab",
+  "version": "0.1.0",
+  "description": "Unified command plane for the Inferno Lab security testing stack. Orchestrates Apparatus, Chimera, and Crucible from a single web dashboard.",
+  "type": "module",
+  "author": "Nicholas Crew Ferguson <nick@atlascrew.dev> (https://atlascrew.dev)",
+  "license": "MIT",
+  "homepage": "https://github.com/atlas-crew/inferno-lab",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/atlas-crew/inferno-lab",
+    "directory": "packages/server"
+  },
+  "bugs": {
+    "url": "https://github.com/atlas-crew/inferno-lab/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/index.js",
+  "bin": {
+    "inferno-lab": "./dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "web-dist",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "clean": "rm -rf dist web-dist",
+    "build:web": "node ./scripts/bundle-web.mjs",
+    "build:server": "tsup",
+    "build": "pnpm run clean && pnpm run build:web && pnpm run build:server",
+    "start": "node dist/bin.js",
+    "type-check": "tsc --noEmit",
+    "prepack": "pnpm run build"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "js-yaml": "^4.1.0",
+    "ws": "^8.18.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@inferno-lab/shared": "workspace:*",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/js-yaml": "^4.0.9",
+    "@types/ws": "^8.5.14",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  }
+}
