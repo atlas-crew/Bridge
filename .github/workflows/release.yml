@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    environment: npm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      # Build the web frontend first, then the server (which bundles web assets)
+      - run: pnpm --filter @inferno-lab/web build
+      - run: pnpm --filter @atlascrew/inferno-lab build
+
+      - name: Publish if version is newer
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          pkg_name=$(node -p "require('./packages/server/package.json').name")
+          local_version=$(node -p "require('./packages/server/package.json').version")
+          npm_version=$(npm view "${pkg_name}" version 2>/dev/null || echo "0.0.0")
+
+          if [ "$local_version" = "$npm_version" ]; then
+            echo "⏭️  ${pkg_name}@${local_version} — already published, skipping"
+          else
+            echo "📦 ${pkg_name}@${local_version} — publishing (npm has ${npm_version})"
+            pnpm --filter "${pkg_name}" publish --access public --no-git-checks
+          fi
+
+  docker:
+    name: Build & Push Docker Image
+    needs: npm
+    runs-on: ubuntu-latest
+    environment: docker
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: nickcrew/inferno-lab
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-
+            type=raw,value=latest
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
