@@ -1,0 +1,129 @@
+@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Recursive:slnt,wght,CASL,CRSV,MONO@-15..0,300..900,0..1,0..1,0..1&display=swap");
+
+/* ── Brand palette ───────────────────────────────────────── */
+
+@theme {
+  --font-family-brand: "Recursive", ui-monospace, monospace;
+
+  --color-bg: #080b12;
+  --color-surface: #0c111c;
+  --color-surface-raised: #121a2b;
+  --color-surface-overlay: #1a2540;
+  --color-border: #151e30;
+
+  --color-text: #dce4ec;
+  --color-text-muted: #6d85a0;
+  --color-text-dim: #4e6580;
+
+  --color-brand-blue: #38a0ff;
+  --color-brand-amber: #e5a820;
+  --color-brand-magenta: #d946a8;
+  --color-brand-orange: #f07030;
+  --color-brand-green: #18c760;
+  --color-brand-red: #ef4444;
+
+  --color-state-running: #18c760;
+  --color-state-starting: #e5a820;
+  --color-state-stopped: #4e6580;
+  --color-state-crashed: #ef4444;
+  --color-state-unhealthy: #f07030;
+  --color-state-stopping: #6d85a0;
+}
+
+/* ── Base ────────────────────────────────────────────────── */
+
+body {
+  font-family: var(--font-family-brand);
+  font-variation-settings: "wght" 400, "MONO" 0, "CASL" 0.6, "CRSV" 0.5, "slnt" 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* ── Typography roles ────────────────────────────────────── */
+
+.type-display {
+  font-variation-settings: "wght" 300, "MONO" 0, "CASL" 0, "CRSV" 0.5, "slnt" 0;
+  font-size: 36px;
+}
+
+.type-heading {
+  font-variation-settings: "wght" 500, "MONO" 0, "CASL" 0.2, "CRSV" 0.5, "slnt" 0;
+  font-size: 24px;
+}
+
+.type-subhead {
+  font-variation-settings: "wght" 600, "MONO" 0, "CASL" 0.3, "CRSV" 0.5, "slnt" -3;
+  font-size: 14px;
+  letter-spacing: 1.5px;
+}
+
+.type-body {
+  font-variation-settings: "wght" 400, "MONO" 0, "CASL" 0.6, "CRSV" 0.5, "slnt" 0;
+  font-size: 13px;
+}
+
+.type-label {
+  font-variation-settings: "wght" 600, "MONO" 1, "CASL" 0.3, "CRSV" 0.5, "slnt" -4;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.type-tag {
+  font-variation-settings: "wght" 800, "MONO" 0, "CASL" 0, "CRSV" 0.5, "slnt" -3;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+}
+
+.type-metric {
+  font-variation-settings: "wght" 400, "MONO" 1, "CASL" 0.6, "CRSV" 0.5, "slnt" 0;
+  font-size: 32px;
+  letter-spacing: -0.5px;
+}
+
+.type-metric-unit {
+  font-variation-settings: "wght" 500, "MONO" 1, "CASL" 0, "CRSV" 0.5, "slnt" 0;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.type-data {
+  font-variation-settings: "wght" 500, "MONO" 1, "CASL" 0, "CRSV" 0.5, "slnt" 0;
+  font-size: 13px;
+}
+
+.type-code {
+  font-variation-settings: "wght" 400, "MONO" 1, "CASL" 0, "CRSV" 0.5, "slnt" 0;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.type-timestamp {
+  font-variation-settings: "wght" 500, "MONO" 1, "CASL" 0, "CRSV" 0.5, "slnt" 0;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.type-nav {
+  font-variation-settings: "wght" 500, "MONO" 0.5, "CASL" 0.2, "CRSV" 0.5, "slnt" -2;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.type-nav-active {
+  font-variation-settings: "wght" 700, "MONO" 0.5, "CASL" 0.1, "CRSV" 0.5, "slnt" -2;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.type-link {
+  font-variation-settings: "wght" 700, "MONO" 0, "CASL" 0, "CRSV" 0.5, "slnt" -15;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.type-breadcrumb {
+  font-variation-settings: "wght" 700, "MONO" 1, "CASL" 0.2, "CRSV" 0.5, "slnt" -7;
+  font-size: 10px;
+  letter-spacing: 2.5px;
+}
