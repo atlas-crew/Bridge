@@ -1,0 +1,78 @@
+# Inferno Lab — systemd unit
+#
+# Install:
+#   sudo cp examples/inferno-lab.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now inferno-lab
+#
+# Logs:
+#   journalctl -u inferno-lab -f
+#
+# Status:
+#   systemctl status inferno-lab
+#
+# This unit assumes:
+#   - inferno-lab is installed globally and on PATH (npm install -g @atlascrew/inferno-lab)
+#   - /etc/inferno-lab/config.yaml exists (see examples/production.yaml)
+#   - The 'inferno-lab' system user owns /var/lib/inferno-lab/
+
+[Unit]
+Description=Inferno Lab Security Testing Console
+Documentation=https://github.com/atlas-crew/inferno-lab
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=inferno-lab
+Group=inferno-lab
+WorkingDirectory=/var/lib/inferno-lab
+
+# Configuration
+Environment=NODE_ENV=production
+Environment=CONFIG_PATH=/etc/inferno-lab/config.yaml
+Environment=PORT=4200
+Environment=HOST=127.0.0.1
+
+# The full path to inferno-lab — adjust if installed via a node version manager
+ExecStart=/usr/bin/inferno-lab start
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+# Logging — captured by journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=inferno-lab
+
+# Graceful shutdown — must exceed shutdownGracePeriodMs in config.yaml
+TimeoutStopSec=20s
+KillSignal=SIGTERM
+KillMode=mixed
+
+# ── Hardening ──────────────────────────────────────────────
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+
+# Inferno Lab needs write access to its data directory
+ReadWritePaths=/var/lib/inferno-lab
+
+# Inferno Lab spawns child processes — needs to keep new privs available to them
+# (override NoNewPrivileges if managed services need elevated privs; they shouldn't)
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,65 @@
+# Inferno Lab — Caddy reverse proxy
+#
+# Caddy provides automatic TLS via Let's Encrypt, basic auth, and acts as the
+# only public-facing surface. Inferno Lab's dashboard binds to 127.0.0.1:4200
+# and is never exposed directly.
+#
+# Install:
+#   sudo cp examples/Caddyfile /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Generate the basic-auth password hash:
+#   caddy hash-password
+#
+# Replace lab.example.com with your actual hostname.
+
+lab.example.com {
+    # Automatic TLS via Let's Encrypt
+    tls admin@example.com
+
+    # Basic auth — restrict the dashboard to authenticated users only
+    basic_auth {
+        # username  $2a$14$<hash from `caddy hash-password`>
+        admin     $2a$14$REPLACE_WITH_OUTPUT_OF_caddy_hash-password
+    }
+
+    # Reverse proxy to Inferno Lab dashboard
+    reverse_proxy 127.0.0.1:4200 {
+        # Required for WebSocket upgrade (live log streaming, status updates)
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Security headers
+    header {
+        # Prevent clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        # Strict transport security — 1 year, include subdomains
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        # MIME sniffing protection
+        X-Content-Type-Options "nosniff"
+        # Referrer policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Remove the Server header
+        -Server
+    }
+
+    # Optional: IP allowlist (uncomment and adjust)
+    # @blocked not remote_ip 10.0.0.0/8 192.168.0.0/16
+    # respond @blocked 403
+
+    # Compress responses
+    encode gzip zstd
+
+    # Log access to a dedicated file
+    log {
+        output file /var/log/caddy/inferno-lab.log {
+            roll_size 100mb
+            roll_keep 10
+            roll_keep_for 720h
+        }
+        format json
+    }
+}

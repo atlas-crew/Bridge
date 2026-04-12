@@ -152,6 +152,100 @@ Connect to `ws://localhost:4200/ws`. The server sends a full `LAB_STATE` snapsho
 
 Client commands: `START_SERVICE`, `STOP_SERVICE`, `RESTART_SERVICE`, `START_PROFILE`, `STOP_ALL`, `SUBSCRIBE_LOGS`, `UNSUBSCRIBE_LOGS`.
 
+## Lab Appliance Deployment
+
+Inferno Lab is designed as a **single-host process supervisor** — it spawns and manages the four services as native child processes on one machine, not as containers across a cluster. The natural production shape is a "lab appliance": a dedicated VM where all four packages are installed system-wide, Inferno Lab runs as a systemd service, and a reverse proxy fronts the dashboard for TLS and authentication.
+
+```
+┌─────────────────────────────────────────┐
+│  lab.example.com                         │
+│  ┌───────────────────────────────────┐  │
+│  │ systemd: inferno-lab.service      │  │
+│  │   ├─ apparatus  (PID 1234)        │  │
+│  │   ├─ chimera    (PID 1245)        │  │
+│  │   └─ crucible   (PID 1267)        │  │
+│  └───────────────────────────────────┘  │
+│  ┌───────────────────────────────────┐  │
+│  │ caddy                             │  │
+│  │   :443 → :4200 (dashboard)        │  │
+│  │   TLS, basic auth                 │  │
+│  └───────────────────────────────────┘  │
+└─────────────────────────────────────────┘
+```
+
+### 1. Provision the host
+
+```bash
+# Create the system user and data directories
+sudo useradd --system --home /var/lib/inferno-lab --shell /usr/sbin/nologin inferno-lab
+sudo mkdir -p /var/lib/inferno-lab/{apparatus,chimera,crucible}
+sudo mkdir -p /etc/inferno-lab
+sudo chown -R inferno-lab:inferno-lab /var/lib/inferno-lab
+```
+
+### 2. Install all four packages
+
+```bash
+# Inferno Lab + Apparatus + Crucible (Node.js)
+sudo npm install -g @atlascrew/inferno-lab @atlascrew/apparatus @atlascrew/crucible
+
+# Chimera (Python)
+sudo pipx install chimera-api  # or: sudo pip install chimera-api
+```
+
+### 3. Drop the production config
+
+```bash
+sudo cp examples/production.yaml /etc/inferno-lab/config.yaml
+sudo chown inferno-lab:inferno-lab /etc/inferno-lab/config.yaml
+sudo chmod 640 /etc/inferno-lab/config.yaml
+```
+
+The [`examples/production.yaml`](./examples/production.yaml) file is preconfigured to use installed binaries (`apparatus`, `chimera-api`, `crucible`), bind all services to `127.0.0.1`, persist data under `/var/lib/inferno-lab/`, and run Chimera in `strict` mode (dangerous endpoints return 403).
+
+### 4. Install the systemd unit
+
+```bash
+sudo cp examples/inferno-lab.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now inferno-lab
+```
+
+The [`examples/inferno-lab.service`](./examples/inferno-lab.service) unit includes hardening (NoNewPrivileges, ProtectSystem=strict, PrivateTmp, etc.), restart-on-failure with rate limiting, and journald log capture.
+
+Verify it's running:
+
+```bash
+systemctl status inferno-lab
+journalctl -u inferno-lab -f
+```
+
+### 5. Front it with Caddy for TLS + auth
+
+Inferno Lab's dashboard binds to `127.0.0.1:4200` and is never directly exposed. Caddy (or nginx) provides TLS termination, basic authentication, and security headers:
+
+```bash
+# Generate a password hash
+caddy hash-password
+
+# Drop the Caddyfile and update lab.example.com + the hash
+sudo cp examples/Caddyfile /etc/caddy/Caddyfile
+sudo $EDITOR /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+The [`examples/Caddyfile`](./examples/Caddyfile) handles automatic TLS via Let's Encrypt, basic auth, WebSocket upgrade for live log streaming, and includes optional IP allowlisting.
+
+### 6. Start a profile from the dashboard
+
+Open `https://lab.example.com`, log in, and click `full-lab` in the profile selector. Inferno Lab will start Apparatus → Chimera → Crucible in dependency order, stream their logs to the dashboard, and begin polling health endpoints.
+
+### What about Kubernetes / multi-host?
+
+Inferno Lab is intentionally a single-host supervisor. For multi-tenant scenarios (e.g. 50 isolated labs for a training cohort), the recommended pattern is to **build a Docker image that bundles all four services + Inferno Lab inside one container**, then deploy 50 instances of that image with Kubernetes — giving each user their own namespace. Inferno Lab still does its single-host job; it just happens that each "host" is now a container.
+
+Use Kubernetes to orchestrate the *containers*, and Inferno Lab to orchestrate the *processes inside each container*. Clean separation of concerns.
+
 ## Design System
 
 Inferno Lab uses the brand system built on [Recursive](https://www.recursive.design) — a single variable font that covers both sans-serif and monospace through axis interpolation. See [`brand/typography/TYPOGRAPHY.md`](brand/typography/TYPOGRAPHY.md) for the full type system specification.

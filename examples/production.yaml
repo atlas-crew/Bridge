@@ -1,0 +1,102 @@
+# Inferno Lab — Production Configuration
+#
+# This config assumes all four packages are installed system-wide:
+#
+#   npm install -g @atlascrew/inferno-lab @atlascrew/apparatus @atlascrew/crucible
+#   pipx install chimera-api
+#
+# It expects the following directory layout (created by the systemd setup):
+#
+#   /var/lib/inferno-lab/
+#   ├── apparatus/   — Apparatus state and data
+#   ├── chimera/     — Chimera SQLite database
+#   └── crucible/    — Crucible execution database and reports
+#
+# All services bind to 127.0.0.1 — Inferno Lab's dashboard on :4200 should be
+# the only port exposed to the network, fronted by Caddy/nginx for TLS + auth.
+#
+# Copy to /etc/inferno-lab/config.yaml and set CONFIG_PATH in the systemd unit.
+
+lab:
+  name: "Inferno Lab"
+  shutdownGracePeriodMs: 15000
+
+services:
+  apparatus:
+    name: "Apparatus"
+    cwd: "/var/lib/inferno-lab/apparatus"
+    command: "apparatus"
+    args: ["start"]
+    healthCheck:
+      url: "http://127.0.0.1:8090/healthz"
+      intervalMs: 5000
+      timeoutMs: 3000
+    ports:
+      http1: 8090
+      http2: 8443
+      grpc: 50051
+    env:
+      NODE_ENV: "production"
+      DEMO_MODE: "false"
+      HOST: "127.0.0.1"
+      PORT_HTTP1: "8090"
+      PORT_HTTP2: "8443"
+      LOG_LEVEL: "info"
+    readyPattern: "Apparatus listening|listening on"
+    dependencies: []
+
+  chimera:
+    name: "Chimera"
+    cwd: "/var/lib/inferno-lab/chimera"
+    command: "chimera-api"
+    args: ["--host", "127.0.0.1", "--port", "8880"]
+    healthCheck:
+      url: "http://127.0.0.1:8880/health"
+      intervalMs: 5000
+      timeoutMs: 3000
+    ports:
+      http: 8880
+    env:
+      DEMO_MODE: "strict"           # restrict dangerous endpoints in production
+      USE_DATABASE: "true"
+      DATABASE_PATH: "/var/lib/inferno-lab/chimera/chimera.db"
+      LOG_LEVEL: "info"
+      APPARATUS_ENABLED: "true"
+      APPARATUS_BASE_URL: "http://127.0.0.1:8090"
+    readyPattern: "Listening at|Worker spawned"
+    dependencies: ["apparatus"]
+
+  crucible:
+    name: "Crucible"
+    cwd: "/var/lib/inferno-lab/crucible"
+    command: "crucible"
+    args: ["start"]
+    healthCheck:
+      url: "http://127.0.0.1:3001/health"
+      intervalMs: 5000
+      timeoutMs: 3000
+    ports:
+      backend: 3001
+      frontend: 3000
+    env:
+      NODE_ENV: "production"
+      HOST: "127.0.0.1"
+      PORT: "3001"
+      CRUCIBLE_DB_PATH: "/var/lib/inferno-lab/crucible/crucible.db"
+      CRUCIBLE_REPORTS_DIR: "/var/lib/inferno-lab/crucible/reports"
+      CRUCIBLE_TARGET_URL: "http://127.0.0.1:8880"
+    readyPattern: "Crucible.*listening|Demo Dashboard server running"
+    dependencies: ["chimera"]
+
+profiles:
+  full-lab:
+    description: "Full security testing stack — Apparatus, Chimera, Crucible"
+    services: ["apparatus", "chimera", "crucible"]
+
+  minimal:
+    description: "Apparatus only — useful for protocol testing without targets"
+    services: ["apparatus"]
+
+  target-stack:
+    description: "Apparatus + Chimera — for manual exploitation work"
+    services: ["apparatus", "chimera"]
