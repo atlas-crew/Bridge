@@ -1,0 +1,10 @@
+{
+  "name": "inferno-lab",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @atlascrew/inferno-lab --filter @inferno-lab/web run dev",
+    "build": "pnpm -r run build",
+    "type-check": "pnpm -r run type-check"
+  }
+}

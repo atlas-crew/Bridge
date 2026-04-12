@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+dist
+**/dist
+web-dist
+**/web-dist
+.git
+.github
+.vscode
+.idea
+.env
+.env.local
+*.log
+coverage
+.nyc_output
+brand/banners/*.png
+docs

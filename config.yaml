@@ -1,0 +1,89 @@
+lab:
+  name: "Inferno Lab"
+  shutdownGracePeriodMs: 10000
+
+services:
+  apparatus:
+    name: "Apparatus"
+    cwd: "/Users/nick/Developer/Apparatus"
+    command: "pnpm"
+    args: ["dev:server"]
+    healthCheck:
+      url: "http://127.0.0.1:8090/healthz"
+      intervalMs: 5000
+      timeoutMs: 3000
+    ports:
+      http1: 8090
+      http2: 8443
+      grpc: 50051
+    env:
+      DEMO_MODE: "true"
+    readyPattern: "listening on"
+    dependencies: []
+
+  chimera-api:
+    name: "Chimera API"
+    cwd: "/Users/nick/Developer/Chimera"
+    command: "pnpm"
+    args: ["nx", "run", "chimera-api:start"]
+    healthCheck:
+      url: "http://127.0.0.1:8880/health"
+      intervalMs: 5000
+      timeoutMs: 3000
+    ports:
+      http: 8880
+    env:
+      DEMO_MODE: "full"
+      APPARATUS_ENABLED: "true"
+      APPARATUS_BASE_URL: "http://127.0.0.1:8090"
+    readyPattern: "Listening at|Worker spawned"
+    dependencies: ["apparatus"]
+
+  chimera-web:
+    name: "Chimera Web"
+    cwd: "/Users/nick/Developer/Chimera"
+    command: "pnpm"
+    args: ["nx", "run", "vuln-web:start"]
+    healthCheck:
+      url: "http://127.0.0.1:5175"
+      intervalMs: 10000
+      timeoutMs: 3000
+    ports:
+      http: 5175
+    env: {}
+    readyPattern: "ready in|Local:"
+    dependencies: ["chimera-api"]
+
+  crucible:
+    name: "Crucible"
+    cwd: "/Users/nick/Developer/Crucible"
+    command: "pnpm"
+    args: ["dev"]
+    healthCheck:
+      url: "http://127.0.0.1:3001/health"
+      intervalMs: 5000
+      timeoutMs: 3000
+    ports:
+      backend: 3001
+      frontend: 3000
+    env:
+      CRUCIBLE_TARGET_URL: "http://127.0.0.1:8880"
+    readyPattern: "Demo Dashboard server running"
+    dependencies: ["chimera-api"]
+
+profiles:
+  full-lab:
+    description: "All services"
+    services: ["apparatus", "chimera-api", "chimera-web", "crucible"]
+
+  apparatus-only:
+    description: "Apparatus standalone"
+    services: ["apparatus"]
+
+  chimera-stack:
+    description: "Apparatus + Chimera (API + Web)"
+    services: ["apparatus", "chimera-api", "chimera-web"]
+
+  testing:
+    description: "Apparatus + Chimera API + Crucible"
+    services: ["apparatus", "chimera-api", "crucible"]
