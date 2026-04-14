@@ -50,7 +50,6 @@ services:
       timeoutMs: 3000
     ports:
       http: 5175
-    env: {}
     readyPattern: "ready in|Local:"
     dependencies: ["chimera-api"]
 
@@ -71,10 +70,59 @@ services:
     readyPattern: "Demo Dashboard server running"
     dependencies: ["chimera-api"]
 
+  signal-horizon-api:
+    name: "Signal Horizon API"
+    cwd: "/Users/nick/Developer/Edge Protection"
+    command: "pnpm"
+    args: ["exec", "nx", "run", "signal-horizon-api:dev"]
+    healthCheck:
+      url: "http://127.0.0.1:3100/health"
+      intervalMs: 5000
+      timeoutMs: 3000
+    ports:
+      api: 3100
+    readyPattern: "Signal Horizon Hub listening"
+    dependencies: []
+
+  signal-horizon-ui:
+    name: "Signal Horizon UI"
+    cwd: "/Users/nick/Developer/Edge Protection"
+    command: "pnpm"
+    args: ["exec", "nx", "run", "signal-horizon-ui:dev"]
+    healthCheck:
+      # Vite serves the SPA at / - status check ensures the listener is up
+      url: "http://127.0.0.1:5180/"
+      # Vite rebuilds can stall responses, so we use a more generous interval
+      intervalMs: 10000
+      timeoutMs: 3000
+    ports:
+      ui: 5180
+    readyPattern: "ready in|Local:"
+    dependencies: ["signal-horizon-api"]
+
+  synapse-pingora:
+    name: "Synapse Pingora"
+    cwd: "/Users/nick/Developer/Edge Protection"
+    command: "pnpm"
+    args: ["exec", "nx", "run", "synapse-pingora:dev"]
+    healthCheck:
+      url: "http://127.0.0.1:6191/health"
+      intervalMs: 5000
+      timeoutMs: 3000
+    ports:
+      proxy: 6190
+      admin: 6191
+    readyPattern: "Admin HTTP server listening on"
+    dependencies: ["signal-horizon-api", "chimera-api"]
+
 profiles:
   full-lab:
-    description: "All services"
-    services: ["apparatus", "chimera-api", "chimera-web", "crucible"]
+    description: "All managed services"
+    services: ["apparatus", "chimera-api", "chimera-web", "crucible", "signal-horizon-api", "signal-horizon-ui", "synapse-pingora"]
+
+  edge-protection:
+    description: "Signal Horizon + Synapse WAF Stack (includes Apparatus + Chimera API)"
+    services: ["apparatus", "chimera-api", "signal-horizon-api", "signal-horizon-ui", "synapse-pingora"]
 
   apparatus-only:
     description: "Apparatus standalone"

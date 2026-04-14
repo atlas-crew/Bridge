@@ -54,10 +54,51 @@ export function CrucibleIcon({ className, size = 24 }: IconProps) {
   );
 }
 
+/** Horizon — Fleet intelligence horizon */
+export function HorizonIcon({ className, size = 24 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 110 110" className={className}>
+      <line x1="18" y1="50" x2="92" y2="50" stroke="#1E90FF" strokeWidth="1.5" strokeLinecap="square" opacity="0.25"/>
+      <path d="M20,50 A35,32 0 0 1 90,50" fill="none" stroke="#F97316" strokeWidth="5" strokeLinecap="square"/>
+      <path d="M34,50 A21,19 0 0 1 76,50" fill="none" stroke="#F97316" strokeWidth="2.5" strokeLinecap="square" opacity="0.45"/>
+      <circle cx="55" cy="50" r="4.5" fill="#F97316"/>
+      <line x1="55" y1="55" x2="26" y2="94" stroke="#1E90FF" strokeWidth="3.5" strokeLinecap="square"/>
+      <line x1="55" y1="55" x2="84" y2="94" stroke="#1E90FF" strokeWidth="3.5" strokeLinecap="square"/>
+      <line x1="55" y1="55" x2="18" y2="82" stroke="#F97316" strokeWidth="2" strokeLinecap="square" opacity="0.45"/>
+      <line x1="55" y1="55" x2="92" y2="82" stroke="#F97316" strokeWidth="2" strokeLinecap="square" opacity="0.45"/>
+    </svg>
+  );
+}
+
+/** Synapse — Neural sensor network */
+export function SynapseIcon({ className, size = 24 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 110 110" className={className}>
+      <line x1="55" y1="55" x2="28" y2="24" stroke="#1E90FF" strokeWidth="2.5" strokeLinecap="square"/>
+      <line x1="55" y1="55" x2="82" y2="24" stroke="#1E90FF" strokeWidth="2.5" strokeLinecap="square"/>
+      <line x1="55" y1="55" x2="90" y2="50" stroke="#1E90FF" strokeWidth="2.5" strokeLinecap="square"/>
+      <line x1="55" y1="55" x2="26" y2="76" stroke="#1E90FF" strokeWidth="2.5" strokeLinecap="square"/>
+      <line x1="55" y1="55" x2="78" y2="86" stroke="#8B5CF6" strokeWidth="3.5" strokeLinecap="square"/>
+      <line x1="28" y1="24" x2="82" y2="24" stroke="#1E90FF" strokeWidth="1.5" strokeLinecap="square" opacity="0.3"/>
+      <line x1="82" y1="24" x2="90" y2="50" stroke="#1E90FF" strokeWidth="1.5" strokeLinecap="square" opacity="0.3"/>
+      <line x1="26" y1="76" x2="78" y2="86" stroke="#8B5CF6" strokeWidth="2" strokeLinecap="square" opacity="0.35"/>
+      <circle cx="28" cy="24" r="4.5" fill="none" stroke="#1E90FF" strokeWidth="2"/>
+      <circle cx="82" cy="24" r="3.5" fill="none" stroke="#1E90FF" strokeWidth="2"/>
+      <circle cx="90" cy="50" r="3.5" fill="none" stroke="#1E90FF" strokeWidth="2"/>
+      <circle cx="26" cy="76" r="3.5" fill="none" stroke="#1E90FF" strokeWidth="2"/>
+      <circle cx="78" cy="86" r="5.5" fill="#8B5CF6"/>
+      <circle cx="55" cy="55" r="7" fill="none" stroke="#1E90FF" strokeWidth="3"/>
+    </svg>
+  );
+}
+
 /** Map service ID to its icon component */
 export const SERVICE_ICON_MAP: Record<string, React.ComponentType<IconProps>> = {
   apparatus: ApparatusIcon,
   'chimera-api': ChimeraIcon,
   'chimera-web': ChimeraIcon,
   crucible: CrucibleIcon,
+  'signal-horizon-api': HorizonIcon,
+  'signal-horizon-ui': HorizonIcon,
+  'synapse-pingora': SynapseIcon,
 };
