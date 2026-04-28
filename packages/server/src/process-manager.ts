@@ -1,8 +1,9 @@
 import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { createInterface } from 'readline';
-import type { ServiceState, ServiceStatus, LogEntry, Config } from '@inferno-lab/shared';
+import type { ServiceState, ServiceStatus, LogEntry, Config } from '@bridge/shared';
 import { LogBuffer } from './log-buffer.js';
+import { substituteEnv } from './utils.js';
 
 interface ManagedProcess {
   id: string;
@@ -63,9 +64,11 @@ export class ProcessManager extends EventEmitter {
         : null,
       restartCount: proc.restartCount,
       health: null, // Populated by health monitor
+      resources: null, // Populated by resource monitor
       ports: svcConfig.ports,
       dependencies: svcConfig.dependencies,
       lastError: proc.lastError,
+      recentStderr: proc.logBuffer.getRecentStderr(5),
       startedAt: proc.startedAt,
       stoppedAt: proc.stoppedAt,
     };
@@ -98,12 +101,20 @@ export class ProcessManager extends EventEmitter {
 
     this.setState(proc, 'starting');
 
-    const env = { ...process.env, ...svcConfig.env };
+    // Substitute env vars in config values before spawning
+    const command = substituteEnv(svcConfig.command);
+    const args = svcConfig.args.map(substituteEnv);
+    const cwd = substituteEnv(svcConfig.cwd);
+    const env = { ...process.env };
+    for (const [key, value] of Object.entries(svcConfig.env)) {
+      env[key] = substituteEnv(value);
+    }
 
-    const child = spawn(svcConfig.command, svcConfig.args, {
-      cwd: svcConfig.cwd,
+    const child = spawn(command, args, {
+      cwd,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
+      detached: true,
     });
 
     proc.child = child;
@@ -206,8 +217,13 @@ export class ProcessManager extends EventEmitter {
 
     return new Promise<void>((resolve) => {
       const killTimer = setTimeout(() => {
-        if (proc.child) {
-          proc.child.kill('SIGKILL');
+        if (proc.pid) {
+          console.log(`[ProcessManager] Grace period expired for ${id}, sending SIGKILL to process group`);
+          try {
+            process.kill(-proc.pid, 'SIGKILL');
+          } catch (err) {
+            console.error(`[ProcessManager] Failed to SIGKILL process group ${proc.pid}:`, err);
+          }
         }
       }, gracePeriod);
 
@@ -217,8 +233,28 @@ export class ProcessManager extends EventEmitter {
       };
 
       proc.child!.once('close', onClose);
-      proc.child!.kill('SIGTERM');
+      
+      try {
+        process.kill(-proc.pid!, 'SIGTERM');
+      } catch (err) {
+        console.error(`[ProcessManager] Failed to SIGTERM process group ${proc.pid}:`, err);
+        // If SIGTERM fails, the process might already be dead or we might not have permission,
+        // but we still want the onClose logic to eventually resolve.
+      }
     });
+  }
+
+  async forceStop(id: string): Promise<void> {
+    const proc = this.processes.get(id);
+    if (!proc) throw new Error(`Unknown service: ${id}`);
+    if (!proc.pid) return;
+
+    console.log(`[ProcessManager] Force stopping ${id} (SIGKILLing process group)`);
+    try {
+      process.kill(-proc.pid, 'SIGKILL');
+    } catch (err) {
+      console.error(`[ProcessManager] Failed to force SIGKILL process group ${proc.pid}:`, err);
+    }
   }
 
   async restart(id: string): Promise<void> {
@@ -228,6 +264,13 @@ export class ProcessManager extends EventEmitter {
     await this.stop(id);
     proc.restartCount++;
     await this.start(id);
+  }
+
+  markUnhealthy(id: string): void {
+    const proc = this.processes.get(id);
+    if (proc && proc.state === 'running') {
+      this.setState(proc, 'unhealthy');
+    }
   }
 
   async stopAll(): Promise<void> {
@@ -241,6 +284,66 @@ export class ProcessManager extends EventEmitter {
     for (const id of sorted) {
       await this.stop(id);
     }
+  }
+
+  async updateConfig(newConfig: Config): Promise<void> {
+    const oldConfig = this.config;
+    const oldIds = new Set(this.processes.keys());
+    const newIds = new Set(Object.keys(newConfig.services));
+
+    // 1. Identify and stop deleted services
+    const toDelete = [...oldIds].filter((id) => !newIds.has(id));
+    for (const id of toDelete) {
+      await this.stop(id);
+      this.processes.delete(id);
+    }
+
+    // 2. Identify and initialize new services
+    const toAdd = [...newIds].filter((id) => !oldIds.has(id));
+    for (const id of toAdd) {
+      this.processes.set(id, {
+        id,
+        child: null,
+        state: 'stopped',
+        pid: null,
+        startedAt: null,
+        stoppedAt: null,
+        restartCount: 0,
+        lastError: null,
+        logBuffer: new LogBuffer(1000),
+        readyResolve: null,
+        readyPromise: null,
+      });
+    }
+
+    // 3. Update the internal config reference before checking runtime changes
+    // so that restart() uses the new config
+    this.config = newConfig;
+
+    // 4. Check for changed runtime configuration in existing services
+    const toUpdate = [...oldIds].filter((id) => newIds.has(id));
+    for (const id of toUpdate) {
+      const oldSvc = oldConfig.services[id]!;
+      const newSvc = newConfig.services[id]!;
+
+      const runtimeChanged =
+        oldSvc.command !== newSvc.command ||
+        JSON.stringify(oldSvc.args) !== JSON.stringify(newSvc.args) ||
+        JSON.stringify(oldSvc.env) !== JSON.stringify(newSvc.env) ||
+        oldSvc.cwd !== newSvc.cwd ||
+        oldSvc.readyPattern !== newSvc.readyPattern;
+
+      if (runtimeChanged) {
+        const proc = this.processes.get(id)!;
+        if (proc.state === 'running' || proc.state === 'starting' || proc.state === 'unhealthy') {
+          console.log(`[ProcessManager] Restarting ${id} due to configuration change`);
+          await this.restart(id);
+        }
+      }
+    }
+
+    // 5. Emit update for all services (metadata might have changed)
+    this.emit('stateChange', { id: '*' } as any);
   }
 
   waitForReady(id: string, timeoutMs = 60000): Promise<void> {

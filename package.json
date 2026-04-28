@@ -1,10 +1,10 @@
 {
-  "name": "inferno-lab",
+  "name": "bridge",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.32.1",
   "scripts": {
-    "dev": "pnpm --parallel --filter @atlascrew/inferno-lab --filter @inferno-lab/web run dev",
+    "dev": "pnpm --parallel --filter @atlascrew/bridge --filter @bridge/web run dev",
     "build": "pnpm -r run build",
     "type-check": "pnpm -r run type-check"
   }

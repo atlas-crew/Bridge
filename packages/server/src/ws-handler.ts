@@ -1,16 +1,17 @@
 import type { WebSocketServer, WebSocket } from 'ws';
-import type {
-  Config,
-  ClientCommand,
-  ServerEvent,
-  ServiceStatus,
-  HealthStatus,
-  LogEntry,
-  LabState,
-} from '@inferno-lab/shared';
+import {
+  type Config,
+  type ClientCommand,
+  type ServerEvent,
+  type ServiceStatus,
+  type HealthStatus,
+  type LogEntry,
+  type LabState,
+} from '@bridge/shared';
 import type { ProcessManager } from './process-manager.js';
 import type { HealthMonitor } from './health-monitor.js';
 import type { Orchestrator } from './orchestrator.js';
+import type { ResourceMonitor, ResourceUsage } from './resource-monitor.js';
 
 interface ClientState {
   ws: WebSocket;
@@ -22,12 +23,19 @@ interface WsHandlerDeps {
   processManager: ProcessManager;
   healthMonitor: HealthMonitor;
   orchestrator: Orchestrator;
+  resourceMonitor: ResourceMonitor;
+}
+
+export interface WsHandler {
+  broadcastState: () => void;
+  updateConfig: (newConfig: Config) => void;
 }
 
 export function setupWebSocket(
   wss: WebSocketServer,
-  { config, processManager, healthMonitor, orchestrator }: WsHandlerDeps,
-): void {
+  { config, processManager, healthMonitor, orchestrator, resourceMonitor }: WsHandlerDeps,
+): WsHandler {
+  let currentConfig = config;
   const clients = new Set<ClientState>();
 
   function broadcast(event: ServerEvent): void {
@@ -49,18 +57,34 @@ export function setupWebSocket(
     const statuses = processManager.getAllStatuses().map((s) => ({
       ...s,
       health: healthMonitor.getHealth(s.id),
+      resources: resourceMonitor.getResourceUsage(s.id),
     }));
 
     return {
       services: statuses,
       activeProfile: orchestrator.getActiveProfile(),
-      profiles: config.profiles,
-      labName: config.lab.name,
+      profiles: currentConfig.profiles,
+      labName: currentConfig.lab.name,
+      config: currentConfig,
     };
+  }
+
+  function broadcastState() {
+    broadcast({ type: 'LAB_STATE', payload: buildLabState() });
+  }
+
+  function updateConfig(newConfig: Config) {
+    currentConfig = newConfig;
   }
 
   // Forward process manager events to WS clients
   processManager.on('stateChange', (status: ServiceStatus) => {
+    // If id is '*', it's a bulk config update, broadcast the full state
+    if ((status as any).id === '*') {
+      broadcastState();
+      broadcast({ type: 'CONFIG_RELOADED', payload: { config: currentConfig } });
+      return;
+    }
     const enriched = { ...status, health: healthMonitor.getHealth(status.id) };
     broadcast({ type: 'SERVICE_UPDATE', payload: enriched });
   });
@@ -75,6 +99,10 @@ export function setupWebSocket(
 
   healthMonitor.on('health', ({ serviceId, health }: { serviceId: string; health: HealthStatus }) => {
     broadcast({ type: 'HEALTH_UPDATE', payload: { serviceId, health } });
+  });
+
+  resourceMonitor.on('resources', ({ serviceId, resources }: { serviceId: string; resources: ResourceUsage }) => {
+    broadcast({ type: 'RESOURCES_UPDATE', payload: { serviceId, resources } });
   });
 
   wss.on('connection', (ws: WebSocket) => {
@@ -101,6 +129,10 @@ export function setupWebSocket(
 
           case 'STOP_SERVICE':
             await processManager.stop(cmd.payload.serviceId);
+            break;
+
+          case 'FORCE_STOP_SERVICE':
+            await processManager.forceStop(cmd.payload.serviceId);
             break;
 
           case 'RESTART_SERVICE':
@@ -149,4 +181,6 @@ export function setupWebSocket(
       clients.delete(client);
     });
   });
+
+  return { broadcastState, updateConfig };
 }

@@ -15,7 +15,7 @@ const targetDir = resolve(serverDir, 'web-dist');
 
 if (!existsSync(sourceDir)) {
   console.error('Web build not found at', sourceDir);
-  console.error('Run "pnpm --filter @inferno-lab/web build" first.');
+  console.error('Run "pnpm --filter @bridge/web build" first.');
   process.exit(1);
 }
 

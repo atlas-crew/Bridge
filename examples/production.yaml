@@ -1,30 +1,30 @@
-# Inferno Lab — Production Configuration
+# Bridge — Production Configuration
 #
 # This config assumes all four packages are installed system-wide:
 #
-#   npm install -g @atlascrew/inferno-lab @atlascrew/apparatus @atlascrew/crucible
+#   npm install -g @atlascrew/bridge @atlascrew/apparatus @atlascrew/crucible
 #   pipx install chimera-api
 #
 # It expects the following directory layout (created by the systemd setup):
 #
-#   /var/lib/inferno-lab/
+#   /var/lib/bridge/
 #   ├── apparatus/   — Apparatus state and data
 #   ├── chimera/     — Chimera SQLite database
 #   └── crucible/    — Crucible execution database and reports
 #
-# All services bind to 127.0.0.1 — Inferno Lab's dashboard on :4200 should be
+# All services bind to 127.0.0.1 — Bridge's dashboard on :4200 should be
 # the only port exposed to the network, fronted by Caddy/nginx for TLS + auth.
 #
-# Copy to /etc/inferno-lab/config.yaml and set CONFIG_PATH in the systemd unit.
+# Copy to /etc/bridge/config.yaml and set CONFIG_PATH in the systemd unit.
 
 lab:
-  name: "Inferno Lab"
+  name: "Lab Appliance"
   shutdownGracePeriodMs: 15000
 
 services:
   apparatus:
     name: "Apparatus"
-    cwd: "/var/lib/inferno-lab/apparatus"
+    cwd: "/var/lib/bridge/apparatus"
     command: "apparatus"
     args: ["start"]
     healthCheck:
@@ -47,7 +47,7 @@ services:
 
   chimera:
     name: "Chimera"
-    cwd: "/var/lib/inferno-lab/chimera"
+    cwd: "/var/lib/bridge/chimera"
     command: "chimera-api"
     args: ["--host", "127.0.0.1", "--port", "8880"]
     healthCheck:
@@ -59,7 +59,7 @@ services:
     env:
       DEMO_MODE: "strict"           # restrict dangerous endpoints in production
       USE_DATABASE: "true"
-      DATABASE_PATH: "/var/lib/inferno-lab/chimera/chimera.db"
+      DATABASE_PATH: "/var/lib/bridge/chimera/chimera.db"
       LOG_LEVEL: "info"
       APPARATUS_ENABLED: "true"
       APPARATUS_BASE_URL: "http://127.0.0.1:8090"
@@ -68,7 +68,7 @@ services:
 
   crucible:
     name: "Crucible"
-    cwd: "/var/lib/inferno-lab/crucible"
+    cwd: "/var/lib/bridge/crucible"
     command: "crucible"
     args: ["start"]
     healthCheck:
@@ -82,8 +82,8 @@ services:
       NODE_ENV: "production"
       HOST: "127.0.0.1"
       PORT: "3001"
-      CRUCIBLE_DB_PATH: "/var/lib/inferno-lab/crucible/crucible.db"
-      CRUCIBLE_REPORTS_DIR: "/var/lib/inferno-lab/crucible/reports"
+      CRUCIBLE_DB_PATH: "/var/lib/bridge/crucible/crucible.db"
+      CRUCIBLE_REPORTS_DIR: "/var/lib/bridge/crucible/reports"
       CRUCIBLE_TARGET_URL: "http://127.0.0.1:8880"
     readyPattern: "Crucible.*listening|Demo Dashboard server running"
     dependencies: ["chimera"]

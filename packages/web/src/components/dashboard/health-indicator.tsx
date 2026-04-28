@@ -1,4 +1,4 @@
-import type { HealthStatus } from '@inferno-lab/shared';
+import type { HealthStatus } from '@bridge/shared';
 import { formatLatency } from '@/lib/utils';
 
 interface HealthIndicatorProps {
@@ -9,8 +9,8 @@ export function HealthIndicator({ health }: HealthIndicatorProps) {
   if (!health) {
     return (
       <span className="type-timestamp flex items-center gap-1.5 text-text-dim">
-        <span className="h-2 w-2 rounded-full bg-text-dim/40" />
-        NO DATA
+        <span className="h-2 w-2 rounded-full bg-text-dim/40 animate-pulse" />
+        PENDING...
       </span>
     );
   }

@@ -1,11 +1,12 @@
 import { Router, type Request, type Response } from 'express';
-import type { Config } from '@inferno-lab/shared';
+import { configSchema, type Config } from '@bridge/shared';
 import type { ProcessManager } from './process-manager.js';
 import type { HealthMonitor } from './health-monitor.js';
 import type { Orchestrator } from './orchestrator.js';
+import { saveConfig } from './config.js';
 
 interface RouteDeps {
-  config: Config;
+  configPath?: string;
   processManager: ProcessManager;
   healthMonitor: HealthMonitor;
   orchestrator: Orchestrator;
@@ -17,12 +18,12 @@ function param(val: string | string[] | undefined): string {
   return val ?? '';
 }
 
-export function createRoutes({ config, processManager, healthMonitor, orchestrator }: RouteDeps): Router {
+export function createRoutes({ configPath, processManager, healthMonitor, orchestrator }: RouteDeps): Router {
   const router = Router();
 
   // Dashboard health
   router.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', timestamp: Date.now(), lab: config.lab.name });
+    res.json({ status: 'ok', timestamp: Date.now(), lab: orchestrator.config.lab.name });
   });
 
   // List all services with status
@@ -37,7 +38,7 @@ export function createRoutes({ config, processManager, healthMonitor, orchestrat
   // Single service detail
   router.get('/api/services/:id', (req: Request, res: Response) => {
     const id = param(req.params.id);
-    if (!config.services[id]) {
+    if (!orchestrator.config.services[id]) {
       res.status(404).json({ error: `Unknown service: ${id}` });
       return;
     }
@@ -49,7 +50,7 @@ export function createRoutes({ config, processManager, healthMonitor, orchestrat
   // Start a service
   router.post('/api/services/:id/start', async (req: Request, res: Response) => {
     const id = param(req.params.id);
-    if (!config.services[id]) {
+    if (!orchestrator.config.services[id]) {
       res.status(404).json({ error: `Unknown service: ${id}` });
       return;
     }
@@ -64,7 +65,7 @@ export function createRoutes({ config, processManager, healthMonitor, orchestrat
   // Stop a service
   router.post('/api/services/:id/stop', async (req: Request, res: Response) => {
     const id = param(req.params.id);
-    if (!config.services[id]) {
+    if (!orchestrator.config.services[id]) {
       res.status(404).json({ error: `Unknown service: ${id}` });
       return;
     }
@@ -79,7 +80,7 @@ export function createRoutes({ config, processManager, healthMonitor, orchestrat
   // Restart a service
   router.post('/api/services/:id/restart', async (req: Request, res: Response) => {
     const id = param(req.params.id);
-    if (!config.services[id]) {
+    if (!orchestrator.config.services[id]) {
       res.status(404).json({ error: `Unknown service: ${id}` });
       return;
     }
@@ -93,19 +94,19 @@ export function createRoutes({ config, processManager, healthMonitor, orchestrat
 
   // List profiles
   router.get('/api/profiles', (_req: Request, res: Response) => {
-    res.json(config.profiles);
+    res.json(orchestrator.config.profiles);
   });
 
   // Start a profile
   router.post('/api/profiles/:name/start', async (req: Request, res: Response) => {
     const name = param(req.params.name);
-    if (!config.profiles[name]) {
+    if (!orchestrator.config.profiles[name]) {
       res.status(404).json({ error: `Unknown profile: ${name}` });
       return;
     }
     try {
       await orchestrator.startProfile(name);
-      res.json({ ok: true, profile: name, services: config.profiles[name]!.services });
+      res.json({ ok: true, profile: name, services: orchestrator.config.profiles[name]!.services });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
@@ -123,7 +124,18 @@ export function createRoutes({ config, processManager, healthMonitor, orchestrat
 
   // Read-only config
   router.get('/api/config', (_req: Request, res: Response) => {
-    res.json(config);
+    res.json(orchestrator.config);
+  });
+
+  // Update config
+  router.put('/api/config', (req: Request, res: Response) => {
+    try {
+      const newConfig = configSchema.parse(req.body);
+      saveConfig(newConfig, configPath);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(400).json({ error: (err as Error).message });
+    }
   });
 
   return router;

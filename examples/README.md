@@ -1,18 +1,18 @@
-# Inferno Lab — Examples
+# Bridge — Examples
 
-Reference configurations for deploying Inferno Lab in different scenarios.
+Reference configurations for deploying Bridge in different scenarios.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
 | [`production.yaml`](./production.yaml) | Production `config.yaml` for a single-host lab appliance with all services installed system-wide |
-| [`inferno-lab.service`](./inferno-lab.service) | systemd unit for running Inferno Lab as a managed service with hardening |
+| [`bridge.service`](./bridge.service) | systemd unit for running Bridge as a managed service with hardening |
 | [`Caddyfile`](./Caddyfile) | Caddy reverse proxy with automatic TLS, basic auth, and security headers |
 
 ## Lab Appliance Deployment
 
-For the full step-by-step guide on deploying Inferno Lab as a hardened single-host security lab, see the [Lab Appliance Deployment](../README.md#lab-appliance-deployment) section in the main README.
+For the full step-by-step guide on deploying Bridge as a hardened single-host security lab, see the [Lab Appliance Deployment](../README.md#lab-appliance-deployment) section in the main README.
 
 ## Source-Tree Development
 

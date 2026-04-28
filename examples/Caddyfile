@@ -1,7 +1,7 @@
-# Inferno Lab — Caddy reverse proxy
+# Bridge — Caddy reverse proxy
 #
 # Caddy provides automatic TLS via Let's Encrypt, basic auth, and acts as the
-# only public-facing surface. Inferno Lab's dashboard binds to 127.0.0.1:4200
+# only public-facing surface. Bridge's dashboard binds to 127.0.0.1:4200
 # and is never exposed directly.
 #
 # Install:
@@ -23,7 +23,7 @@ lab.example.com {
         admin     $2a$14$REPLACE_WITH_OUTPUT_OF_caddy_hash-password
     }
 
-    # Reverse proxy to Inferno Lab dashboard
+    # Reverse proxy to Bridge dashboard
     reverse_proxy 127.0.0.1:4200 {
         # Required for WebSocket upgrade (live log streaming, status updates)
         header_up Host {host}
@@ -55,7 +55,7 @@ lab.example.com {
 
     # Log access to a dedicated file
     log {
-        output file /var/log/caddy/inferno-lab.log {
+        output file /var/log/caddy/bridge.log {
             roll_size 100mb
             roll_keep 10
             roll_keep_for 720h

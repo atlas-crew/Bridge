@@ -1,25 +1,25 @@
 {
-  "name": "@atlascrew/inferno-lab",
+  "name": "@atlascrew/bridge",
   "version": "0.1.0",
-  "description": "Unified command plane for the Inferno Lab security testing stack. Orchestrates Apparatus, Chimera, and Crucible from a single web dashboard.",
+  "description": "Service orchestration layer for the Atlas Crew Security stack. Manages, monitors, and streams logs from a configurable set of long-running security services.",
   "type": "module",
   "author": "Nicholas Crew Ferguson <nick@atlascrew.dev> (https://atlascrew.dev)",
   "license": "MIT",
-  "homepage": "https://github.com/atlas-crew/inferno-lab",
+  "homepage": "https://github.com/atlas-crew/bridge",
   "repository": {
     "type": "git",
-    "url": "https://github.com/atlas-crew/inferno-lab",
+    "url": "https://github.com/atlas-crew/bridge",
     "directory": "packages/server"
   },
   "bugs": {
-    "url": "https://github.com/atlas-crew/inferno-lab/issues"
+    "url": "https://github.com/atlas-crew/bridge/issues"
   },
   "engines": {
     "node": ">=22"
   },
   "main": "./dist/index.js",
   "bin": {
-    "inferno-lab": "./dist/bin.js"
+    "bridge": "./dist/bin.js"
   },
   "files": [
     "dist",
@@ -27,7 +27,7 @@
     "README.md"
   ],
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "NODE_ENV=development tsx watch src/index.ts",
     "clean": "rm -rf dist web-dist",
     "build:web": "node ./scripts/bundle-web.mjs",
     "build:server": "tsup",
@@ -48,7 +48,7 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@inferno-lab/shared": "workspace:*",
+    "@bridge/shared": "workspace:*",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/js-yaml": "^4.0.9",

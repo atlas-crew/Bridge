@@ -1,4 +1,4 @@
-import type { LogEntry } from '@inferno-lab/shared';
+import type { LogEntry } from '@bridge/shared';
 
 export class LogBuffer {
   private buffer: LogEntry[];
@@ -30,6 +30,17 @@ export class LogBuffer {
 
   getSince(timestamp: number): LogEntry[] {
     return this.getAll().filter((e) => e.timestamp >= timestamp);
+  }
+
+  getRecentStderr(n: number): string[] {
+    const all = this.getAll();
+    const stderrLines: string[] = [];
+    for (let i = all.length - 1; i >= 0 && stderrLines.length < n; i--) {
+      if (all[i].stream === 'stderr') {
+        stderrLines.unshift(all[i].data);
+      }
+    }
+    return stderrLines;
   }
 
   clear(): void {

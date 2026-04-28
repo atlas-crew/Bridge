@@ -26,7 +26,7 @@ if (command === 'start' || command === 'serve') {
   }
 
   const config = loadConfig(configPath);
-  const handle = await startServer(config, port);
+  const handle = await startServer(config, port, configPath);
 
   const shutdown = () => {
     console.log('\nShutting down...');
@@ -36,9 +36,9 @@ if (command === 'start' || command === 'serve') {
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
 } else if (command === 'help' || command === '--help' || command === '-h') {
-  console.log(`Usage: inferno-lab [start|serve|help]
+  console.log(`Usage: bridge [start|serve|help]
 
-start, serve  Start the Inferno Lab dashboard server (default)
+start, serve  Start the Bridge orchestration server (default)
 help          Show this help message
 
 Environment:

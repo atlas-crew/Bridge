@@ -8,7 +8,7 @@ export default defineConfig([
     dts: true,
     clean: true,
     target: 'node22',
-    external: ['@inferno-lab/shared'],
+    external: ['@bridge/shared'],
   },
   // CLI binary (for npm global install)
   {
@@ -16,6 +16,6 @@ export default defineConfig([
     format: ['esm'],
     target: 'node22',
     // Shebang is in the source file — tsup preserves it
-    noExternal: ['@inferno-lab/shared'],
+    noExternal: ['@bridge/shared'],
   },
 ]);

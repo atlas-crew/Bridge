@@ -1,5 +1,5 @@
 {
-  "name": "@inferno-lab/web",
+  "name": "@bridge/web",
   "version": "0.1.0",
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@inferno-lab/shared": "workspace:*",
+    "@bridge/shared": "workspace:*",
     "@radix-ui/react-dropdown-menu": "^2.1.6",
     "@radix-ui/react-scroll-area": "^1.2.3",
     "@radix-ui/react-select": "^2.1.6",

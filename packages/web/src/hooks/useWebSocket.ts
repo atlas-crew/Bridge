@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useLabStore } from '@/store/useLabStore';
-import type { ServerEvent } from '@inferno-lab/shared';
+import type { ServerEvent } from '@bridge/shared';
 
 const MIN_RECONNECT_DELAY = 1000;
 const MAX_RECONNECT_DELAY = 30000;
@@ -29,11 +29,26 @@ export function useWebSocket() {
         setWsConnected(true);
         attempts.current = 0;
 
-        // Subscribe to all service logs on connect
-        ws.send(JSON.stringify({
-          type: 'SUBSCRIBE_LOGS',
-          payload: { serviceIds: ['apparatus', 'chimera-api', 'chimera-web', 'crucible'] },
-        }));
+        // Subscribe to logs once services are loaded
+        const subscribe = () => {
+          const serviceIds = Array.from(useLabStore.getState().services.keys());
+          if (serviceIds.length > 0) {
+            ws.send(JSON.stringify({
+              type: 'SUBSCRIBE_LOGS',
+              payload: { serviceIds },
+            }));
+            return true;
+          }
+          return false;
+        };
+
+        if (!subscribe()) {
+          const unsub = useLabStore.subscribe((state, prevState) => {
+            if (state.services.size > 0 && prevState.services.size === 0) {
+              if (subscribe()) unsub();
+            }
+          });
+        }
       };
 
       ws.onmessage = (event) => {

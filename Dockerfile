@@ -35,12 +35,12 @@ COPY packages/web packages/web
 COPY config.yaml ./config.yaml
 
 # Build web first, then server (which bundles web assets via prepack/build)
-RUN pnpm --filter @inferno-lab/web build
-RUN pnpm --filter @atlascrew/inferno-lab build
+RUN pnpm --filter @bridge/web build
+RUN pnpm --filter @atlascrew/bridge build
 
 # pnpm deploy creates a self-contained production bundle with no workspace symlinks
 # --legacy preserves pnpm v9 behavior (pnpm v10 requires inject-workspace-packages otherwise)
-RUN pnpm deploy --filter @atlascrew/inferno-lab --prod --legacy /release
+RUN pnpm deploy --filter @atlascrew/bridge --prod --legacy /release
 
 # Copy the default config into the release bundle
 RUN cp config.yaml /release/config.yaml
@@ -53,11 +53,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 infernolab
+    adduser --system --uid 1001 bridge
 
 COPY --from=builder /release ./
 
-USER infernolab
+USER bridge
 
 EXPOSE 4200
 ENV PORT=4200

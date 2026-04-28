@@ -30,8 +30,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       # Build the web frontend first, then the server (which bundles web assets)
-      - run: pnpm --filter @inferno-lab/web build
-      - run: pnpm --filter @atlascrew/inferno-lab build
+      - run: pnpm --filter @bridge/web build
+      - run: pnpm --filter @atlascrew/bridge build
 
       - name: Publish if version is newer
         env:
@@ -67,7 +67,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: nickcrew/inferno-lab
+          images: nickcrew/bridge
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}

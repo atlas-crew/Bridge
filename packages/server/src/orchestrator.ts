@@ -1,8 +1,9 @@
-import type { Config } from '@inferno-lab/shared';
+import type { Config } from '@bridge/shared';
 import type { ProcessManager } from './process-manager.js';
+import { savePrefs } from './prefs.js';
 
 export class Orchestrator {
-  private config: Config;
+  public config: Config;
   private processManager: ProcessManager;
   private activeProfile: string | null = null;
 
@@ -21,6 +22,7 @@ export class Orchestrator {
 
     const sorted = this.topoSort(profile.services);
     this.activeProfile = profileName;
+    savePrefs({ lastProfile: profileName });
 
     for (const id of sorted) {
       await this.processManager.start(id);
@@ -38,6 +40,15 @@ export class Orchestrator {
     }
 
     this.activeProfile = null;
+  }
+
+  updateConfig(newConfig: Config): void {
+    this.config = newConfig;
+
+    // Reset active profile if it no longer exists or if its services changed (simpler for now)
+    if (this.activeProfile && !newConfig.profiles[this.activeProfile]) {
+      this.activeProfile = null;
+    }
   }
 
   /** Topological sort — dependencies come first. */

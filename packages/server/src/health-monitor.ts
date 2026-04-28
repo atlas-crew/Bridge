@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
-import type { HealthStatus, Config } from '@inferno-lab/shared';
+import type { HealthStatus, Config } from '@bridge/shared';
 import type { ProcessManager } from './process-manager.js';
+import { substituteEnv } from './utils.js';
 
 const UNHEALTHY_THRESHOLD = 3;
 
@@ -55,7 +56,8 @@ export class HealthMonitor extends EventEmitter {
     const status = this.processManager.getStatus(id);
     if (status.state !== 'running' && status.state !== 'unhealthy') return;
 
-    const { url, timeoutMs } = svcConfig.healthCheck;
+    const { url: rawUrl, timeoutMs } = svcConfig.healthCheck;
+    const url = substituteEnv(rawUrl);
     const start = Date.now();
 
     try {
@@ -75,10 +77,7 @@ export class HealthMonitor extends EventEmitter {
       this.emit('health', { serviceId: id, health });
 
       if (health.consecutiveFailures >= UNHEALTHY_THRESHOLD && status.state === 'running') {
-        this.processManager.emit('stateChange', {
-          ...this.processManager.getStatus(id),
-          state: 'unhealthy' as const,
-        });
+        this.processManager.markUnhealthy(id);
       }
     } catch {
       const prev = this.healthMap.get(id);
@@ -94,10 +93,7 @@ export class HealthMonitor extends EventEmitter {
       this.emit('health', { serviceId: id, health });
 
       if (health.consecutiveFailures >= UNHEALTHY_THRESHOLD && status.state === 'running') {
-        this.processManager.emit('stateChange', {
-          ...this.processManager.getStatus(id),
-          state: 'unhealthy' as const,
-        });
+        this.processManager.markUnhealthy(id);
       }
     }
   }
@@ -107,5 +103,30 @@ export class HealthMonitor extends EventEmitter {
       clearInterval(timer);
     }
     this.timers.clear();
+  }
+
+  updateConfig(newConfig: Config): void {
+    const oldConfig = this.config;
+    this.config = newConfig;
+
+    // Check for services with changed intervals or removed services
+    for (const [id, timer] of this.timers.entries()) {
+      const newSvc = newConfig.services[id];
+      if (!newSvc) {
+        // Service removed
+        clearInterval(timer);
+        this.timers.delete(id);
+        this.healthMap.delete(id);
+        continue;
+      }
+
+      const oldSvc = oldConfig.services[id];
+      if (oldSvc?.healthCheck.intervalMs !== newSvc.healthCheck.intervalMs) {
+        // Interval changed, restart timer
+        clearInterval(timer);
+        this.timers.delete(id);
+        this.startPolling(id);
+      }
+    }
   }
 }
