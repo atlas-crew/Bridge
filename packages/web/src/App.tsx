@@ -3,6 +3,7 @@ import { useUptimeTicker } from '@/hooks/useUptimeTicker';
 import { Header } from '@/components/layout/header';
 import { ServiceGrid } from '@/components/dashboard/service-grid';
 import { LogViewer } from '@/components/logs/log-viewer';
+import { ConfigEditor } from '@/components/config/ConfigEditor';
 import { useLabStore } from '@/store/useLabStore';
 
 export default function App() {
@@ -11,6 +12,7 @@ export default function App() {
 
   const error = useLabStore((s) => s.error);
   const setError = useLabStore((s) => s.setError);
+  const activeView = useLabStore((s) => s.activeView);
 
   return (
     <div className="flex h-screen flex-col">
@@ -27,12 +29,20 @@ export default function App() {
       )}
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto px-6 py-6">
-        <ServiceGrid />
+      <main className="flex-1 overflow-hidden">
+        {activeView === 'dashboard' ? (
+          <div className="h-full overflow-y-auto px-6 py-6">
+            <ServiceGrid />
+          </div>
+        ) : (
+          <div className="h-full px-6 py-6">
+            <ConfigEditor />
+          </div>
+        )}
       </main>
 
       {/* Log panel */}
-      <LogViewer />
+      {activeView === 'dashboard' && <LogViewer />}
     </div>
   );
 }
