@@ -5,7 +5,7 @@ const PORT = parseInt(process.env.PORT ?? '4200', 10);
 const CONFIG_PATH = process.env.CONFIG_PATH ?? undefined;
 
 const config = loadConfig(CONFIG_PATH);
-const handle = await startServer(config, PORT);
+const handle = await startServer(config, PORT, CONFIG_PATH);
 
 // Graceful shutdown — cascade stop-all to child processes
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
