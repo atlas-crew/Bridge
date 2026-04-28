@@ -1,4 +1,4 @@
-import { Search, Trash2 } from 'lucide-react';
+import { Search, Trash2, MousePointer2, CirclePause } from 'lucide-react';
 import { useLabStore } from '@/store/useLabStore';
 
 export function LogToolbar() {
@@ -6,9 +6,33 @@ export function LogToolbar() {
   const logFilter = useLabStore((s) => s.logFilter);
   const setLogFilter = useLabStore((s) => s.setLogFilter);
   const clearLogs = useLabStore((s) => s.clearLogs);
+  const isAutoScroll = useLabStore((s) => s.isAutoScroll);
+  const setAutoScroll = useLabStore((s) => s.setAutoScroll);
 
   return (
     <div className="flex items-center gap-3 border-b border-border bg-surface px-4 py-2">
+      {/* Auto-scroll toggle */}
+      <button
+        onClick={() => setAutoScroll(!isAutoScroll)}
+        className={`flex items-center gap-1.5 rounded px-2 py-1 transition-all ${
+          isAutoScroll
+            ? 'bg-brand-blue/10 text-brand-blue border border-brand-blue/30'
+            : 'bg-surface-raised text-text-dim border border-border hover:text-text'
+        }`}
+        title={isAutoScroll ? 'Pause auto-scroll' : 'Resume auto-scroll'}
+      >
+        {isAutoScroll ? (
+          <MousePointer2 className="h-3 w-3 animate-pulse" />
+        ) : (
+          <CirclePause className="h-3 w-3" />
+        )}
+        <span className="type-tag" style={{ fontSize: 9 }}>
+          {isAutoScroll ? 'FOLLOW' : 'PAUSED'}
+        </span>
+      </button>
+
+      <div className="h-4 w-px bg-border mx-1" />
+
       {/* Service filter */}
       <select
         value={logFilter.serviceId ?? 'all'}
