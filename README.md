@@ -1,6 +1,6 @@
 <div align="center">
 
-![Bridge](brand/lockups/bridge-lockup.svg)
+![Bridge](brand/banners/bridge-banner.png)
 
 ![Node.js](https://img.shields.io/badge/Node.js-v22+-green)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue)
