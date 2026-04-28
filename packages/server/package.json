@@ -5,14 +5,14 @@
   "type": "module",
   "author": "Nicholas Crew Ferguson <nick@atlascrew.dev> (https://atlascrew.dev)",
   "license": "MIT",
-  "homepage": "https://github.com/atlas-crew/bridge",
+  "homepage": "https://github.com/atlas-crew/Bridge",
   "repository": {
     "type": "git",
-    "url": "https://github.com/atlas-crew/bridge",
+    "url": "https://github.com/atlas-crew/Bridge",
     "directory": "packages/server"
   },
   "bugs": {
-    "url": "https://github.com/atlas-crew/bridge/issues"
+    "url": "https://github.com/atlas-crew/Bridge/issues"
   },
   "engines": {
     "node": ">=22"
