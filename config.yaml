@@ -1,137 +1,174 @@
 lab:
-  name: "Inferno Lab"
+  name: Inferno Lab
   shutdownGracePeriodMs: 10000
-
 services:
   apparatus:
-    name: "Apparatus"
-    cwd: "/Users/nick/Developer/Apparatus"
-    command: "pnpm"
-    args: ["dev:server"]
+    name: Apparatus
+    cwd: /Users/nick/Developer/Apparatus
+    command: pnpm
+    args:
+      - dev:server
     healthCheck:
-      url: "http://127.0.0.1:8090/healthz"
+      url: http://127.0.0.1:8090/healthz
       intervalMs: 5000
       timeoutMs: 3000
     ports:
       http1: 8090
       http2: 8443
       grpc: 50051
+      tcp-echo: 9090
+      udp-echo: 9001
+      redis-mock: 6380
     env:
-      DEMO_MODE: "true"
-    readyPattern: "listening on"
+      DEMO_MODE: 'true'
+      PORT_TCP: '9090'
+      PORT_REDIS: '6380'
+    readyPattern: server listening
     dependencies: []
-
   chimera-api:
-    name: "Chimera API"
-    cwd: "/Users/nick/Developer/Chimera"
-    command: "pnpm"
-    args: ["nx", "run", "chimera-api:start"]
+    name: Chimera API
+    cwd: /Users/nick/Developer/Chimera
+    command: pnpm
+    args:
+      - nx
+      - run
+      - chimera-api:start
     healthCheck:
-      url: "http://127.0.0.1:8880/health"
+      url: http://127.0.0.1:8880/health
       intervalMs: 5000
       timeoutMs: 3000
     ports:
       http: 8880
     env:
-      DEMO_MODE: "full"
-      APPARATUS_ENABLED: "true"
-      APPARATUS_BASE_URL: "http://127.0.0.1:8090"
-    readyPattern: "Listening at|Worker spawned"
-    dependencies: ["apparatus"]
-
+      DEMO_MODE: full
+      APPARATUS_ENABLED: 'true'
+      APPARATUS_BASE_URL: http://127.0.0.1:8090
+    readyPattern: Listening at|Worker spawned
+    dependencies:
+      - apparatus
   chimera-web:
-    name: "Chimera Web"
-    cwd: "/Users/nick/Developer/Chimera"
-    command: "pnpm"
-    args: ["nx", "run", "vuln-web:start"]
+    name: Chimera Web
+    cwd: /Users/nick/Developer/Chimera
+    command: pnpm
+    args:
+      - nx
+      - run
+      - vuln-web:start
     healthCheck:
-      url: "http://127.0.0.1:5175"
+      url: http://127.0.0.1:5175
       intervalMs: 10000
       timeoutMs: 3000
     ports:
       http: 5175
-    readyPattern: "ready in|Local:"
-    dependencies: ["chimera-api"]
-
+    env: {}
+    readyPattern: 'ready in|Local:'
+    dependencies:
+      - chimera-api
   crucible:
-    name: "Crucible"
-    cwd: "/Users/nick/Developer/Crucible"
-    command: "pnpm"
-    args: ["dev"]
+    name: Crucible
+    cwd: /Users/nick/Developer/Crucible
+    command: pnpm
+    args:
+      - dev
     healthCheck:
-      url: "http://127.0.0.1:3001/health"
+      url: http://127.0.0.1:3001/health
       intervalMs: 5000
       timeoutMs: 3000
     ports:
       backend: 3001
       frontend: 3000
     env:
-      CRUCIBLE_TARGET_URL: "http://127.0.0.1:8880"
-    readyPattern: "Demo Dashboard server running"
-    dependencies: ["chimera-api"]
-
+      CRUCIBLE_TARGET_URL: http://127.0.0.1:8880
+    readyPattern: Demo Dashboard server running
+    dependencies:
+      - chimera-api
   signal-horizon-api:
-    name: "Signal Horizon API"
-    cwd: "/Users/nick/Developer/Edge Protection"
-    command: "pnpm"
-    args: ["exec", "nx", "run", "signal-horizon-api:dev"]
+    name: Signal Horizon API
+    cwd: /Users/nick/Developer/Edge Protection
+    command: pnpm
+    args:
+      - exec
+      - nx
+      - run
+      - signal-horizon-api:dev
     healthCheck:
-      url: "http://127.0.0.1:3100/health"
+      url: http://127.0.0.1:3100/health
       intervalMs: 5000
       timeoutMs: 3000
-    ports:
-      api: 3100
-    readyPattern: "Signal Horizon Hub listening"
+    ports: {}
+    env: {}
+    readyPattern: listening on port
     dependencies: []
-
   signal-horizon-ui:
-    name: "Signal Horizon UI"
-    cwd: "/Users/nick/Developer/Edge Protection"
-    command: "pnpm"
-    args: ["exec", "nx", "run", "signal-horizon-ui:dev"]
+    name: Signal Horizon UI
+    cwd: /Users/nick/Developer/Edge Protection
+    command: pnpm
+    args:
+      - exec
+      - nx
+      - run
+      - signal-horizon-ui:dev
     healthCheck:
-      # Vite serves the SPA at / - status check ensures the listener is up
-      url: "http://127.0.0.1:5180/"
-      # Vite rebuilds can stall responses, so we use a more generous interval
+      url: http://127.0.0.1:5180/
       intervalMs: 10000
       timeoutMs: 3000
     ports:
       ui: 5180
-    readyPattern: "ready in|Local:"
-    dependencies: ["signal-horizon-api"]
-
+    env: {}
+    readyPattern: 'ready in|Local:'
+    dependencies:
+      - signal-horizon-api
   synapse-pingora:
-    name: "Synapse Pingora"
-    cwd: "/Users/nick/Developer/Edge Protection"
-    command: "pnpm"
-    args: ["exec", "nx", "run", "synapse-pingora:dev"]
+    name: Synapse Pingora
+    cwd: /Users/nick/Developer/Synapse
+    command: pnpm
+    args:
+      - exec
+      - nx
+      - run
+      - synapse-pingora:dev
     healthCheck:
-      url: "http://127.0.0.1:6191/health"
+      url: http://127.0.0.1:6191/health
       intervalMs: 5000
       timeoutMs: 3000
-    ports:
-      proxy: 6190
-      admin: 6191
-    readyPattern: "Admin HTTP server listening on"
-    dependencies: ["signal-horizon-api", "chimera-api"]
-
+    ports: {}
+    env: {}
+    readyPattern: Admin HTTP server listening on
+    dependencies:
+      - signal-horizon-api
+      - chimera-api
 profiles:
   full-lab:
-    description: "All managed services"
-    services: ["apparatus", "chimera-api", "chimera-web", "crucible", "signal-horizon-api", "signal-horizon-ui", "synapse-pingora"]
-
+    description: All managed services
+    services:
+      - apparatus
+      - chimera-api
+      - chimera-web
+      - crucible
+      - signal-horizon-api
+      - signal-horizon-ui
+      - synapse-pingora
   edge-protection:
-    description: "Signal Horizon + Synapse WAF Stack (includes Apparatus + Chimera API)"
-    services: ["apparatus", "chimera-api", "signal-horizon-api", "signal-horizon-ui", "synapse-pingora"]
-
+    description: Signal Horizon + Synapse WAF Stack (includes Apparatus + Chimera API)
+    services:
+      - apparatus
+      - chimera-api
+      - signal-horizon-api
+      - signal-horizon-ui
+      - synapse-pingora
   apparatus-only:
-    description: "Apparatus standalone"
-    services: ["apparatus"]
-
+    description: Apparatus standalone
+    services:
+      - apparatus
   chimera-stack:
-    description: "Apparatus + Chimera (API + Web)"
-    services: ["apparatus", "chimera-api", "chimera-web"]
-
+    description: Apparatus + Chimera (API + Web)
+    services:
+      - apparatus
+      - chimera-api
+      - chimera-web
   testing:
-    description: "Apparatus + Chimera API + Crucible"
-    services: ["apparatus", "chimera-api", "crucible"]
+    description: Apparatus + Chimera API + Crucible
+    services:
+      - apparatus
+      - chimera-api
+      - crucible
