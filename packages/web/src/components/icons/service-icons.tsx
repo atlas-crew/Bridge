@@ -5,18 +5,6 @@ interface IconProps {
   size?: number;
 }
 
-/** Inferno Lab — Crown of Three */
-export function InfernoLabIcon({ className, size = 24 }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 110 110" className={className} aria-hidden="true" role="img">
-      <path d="M16,88 L34,42 L52,88" fill="none" stroke="#f07030" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" opacity="0.65"/>
-      <path d="M38,88 L55,14 L72,88" fill="none" stroke="#f07030" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter"/>
-      <path d="M58,88 L76,42 L94,88" fill="none" stroke="#f07030" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" opacity="0.65"/>
-      <line x1="12" y1="92" x2="98" y2="92" stroke="#f07030" strokeWidth="3" opacity="0.4"/>
-    </svg>
-  );
-}
-
 /** Apparatus — Broken ring with waveform */
 export function ApparatusIcon({ className, size = 24 }: IconProps) {
   return (
