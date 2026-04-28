@@ -1,4 +1,5 @@
-import { Play } from 'lucide-react';
+import React, { useState } from 'react';
+import { Rocket, ChevronDown } from 'lucide-react';
 import { useLabStore } from '@/store/useLabStore';
 
 export function ProfileSelector() {
@@ -7,30 +8,45 @@ export function ProfileSelector() {
   const sendCommand = useLabStore((s) => s.sendCommand);
 
   const entries = Object.entries(profiles);
+  const [selected, setSelected] = useState(entries[0]?.[0] || '');
+
   if (entries.length === 0) return null;
 
+  const handleLaunch = () => {
+    if (selected) {
+      sendCommand({ type: 'START_PROFILE', payload: { profile: selected } });
+    }
+  };
+
   return (
-    <div className="flex items-center gap-2">
-      {entries.map(([name, profile]) => {
-        const isActive = activeProfile === name;
-        return (
-          <button
-            key={name}
-            onClick={() => sendCommand({ type: 'START_PROFILE', payload: { profile: name } })}
-            disabled={isActive}
-            className={`type-label flex items-center gap-1.5 rounded-lg border px-3 py-1.5 uppercase transition-colors ${
-              isActive
-                ? 'border-brand-orange/40 bg-brand-orange/10 text-brand-orange cursor-default'
-                : 'border-border bg-surface text-text-muted hover:border-text-dim hover:bg-surface-raised hover:text-text'
-            }`}
-            title={profile.description}
-          >
-            <Play className="h-3 w-3" />
-            {name}
-            <span className="type-timestamp text-text-dim">({profile.services.length})</span>
-          </button>
-        );
-      })}
+    <div className="flex items-center gap-2 bg-bg/50 p-1 rounded-lg border border-border">
+      <div className="relative flex items-center">
+        <select
+          value={selected}
+          onChange={(e) => setSelected(e.target.value)}
+          className="appearance-none bg-surface-raised border border-border rounded-md px-3 py-1.5 pr-8 type-label text-text outline-none focus:border-brand-blue/50 transition-colors cursor-pointer min-w-[140px]"
+        >
+          {entries.map(([name, profile]) => (
+            <option key={name} value={name}>
+              {name.toUpperCase()} ({profile.services.length})
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-2.5 h-3.5 w-3.5 text-text-dim pointer-events-none" />
+      </div>
+
+      <button
+        onClick={handleLaunch}
+        disabled={activeProfile === selected}
+        className={`flex items-center gap-2 px-4 py-1.5 rounded-md transition-all font-bold ${
+          activeProfile === selected
+            ? 'bg-state-running/20 text-state-running border border-state-running/30 cursor-default'
+            : 'bg-brand-blue text-bg hover:brightness-110 shadow-lg shadow-brand-blue/10 active:scale-95'
+        }`}
+      >
+        <Rocket className={`h-4 w-4 ${activeProfile === selected ? '' : 'animate-pulse'}`} />
+        <span className="type-nav">LAUNCH</span>
+      </button>
     </div>
   );
 }
