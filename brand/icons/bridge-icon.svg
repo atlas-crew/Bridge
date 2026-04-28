@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="42.058605mm"
+   height="42.058609mm"
+   viewBox="0 0 42.058604 42.05861"
+   version="1.1"
+   id="svg1"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <linearGradient
+       id="swatch35">
+      <stop
+         style="stop-color:#0a0a0a;stop-opacity:1;"
+         offset="0"
+         id="stop35" />
+    </linearGradient>
+    <linearGradient
+       id="swatch6">
+      <stop
+         style="stop-color:#4d1c94;stop-opacity:1;"
+         offset="0"
+         id="stop7" />
+    </linearGradient>
+  </defs>
+  <g
+     id="layer1"
+     transform="translate(-390.16213,-576.68747)">
+    <g
+       id="g13-2"
+       transform="matrix(1.1847496,0,0,1.1847483,74.275959,534.75129)">
+      <g
+         id="g40"
+         transform="translate(0,8.0181947)">
+        <g
+           id="g15-4"
+           transform="matrix(0.32272727,0,0,0.32272727,266.62697,27.378555)">
+          <rect
+             width="110"
+             height="110"
+             fill="#0c1220"
+             id="rect1-2-4"
+             x="0"
+             y="0" />
+          <rect
+             x="22"
+             y="22"
+             width="66"
+             height="66"
+             fill="none"
+             stroke="#1e90ff"
+             stroke-width="1.5"
+             stroke-linecap="square"
+             opacity="0.2"
+             stroke-dasharray="4, 4"
+             id="rect2-1-9" />
+          <line
+             x1="55"
+             y1="22"
+             x2="55"
+             y2="88"
+             stroke="#1e90ff"
+             stroke-width="1"
+             stroke-linecap="square"
+             opacity="0.12"
+             id="line2-9" />
+          <line
+             x1="22"
+             y1="55"
+             x2="88"
+             y2="55"
+             stroke="#1e90ff"
+             stroke-width="1"
+             stroke-linecap="square"
+             opacity="0.12"
+             id="line3-6" />
+          <rect
+             x="28"
+             y="28"
+             width="10"
+             height="10"
+             fill="none"
+             stroke="#f97316"
+             stroke-width="2"
+             id="rect3-5-0"
+             style="stroke:#1e90ff;stroke-opacity:1" />
+          <rect
+             x="50"
+             y="28"
+             width="10"
+             height="10"
+             fill="none"
+             stroke="#f97316"
+             stroke-width="2"
+             id="rect4-1"
+             style="stroke:#1e90ff;stroke-opacity:1" />
+          <rect
+             x="72"
+             y="28"
+             width="10"
+             height="10"
+             fill="none"
+             stroke="#f97316"
+             stroke-width="2"
+             id="rect5-6"
+             style="stroke:#1e90ff;stroke-opacity:1" />
+          <rect
+             x="28"
+             y="50"
+             width="10"
+             height="10"
+             fill="none"
+             stroke="#f97316"
+             stroke-width="2"
+             id="rect6-2"
+             style="stroke:#1e90ff;stroke-opacity:1" />
+          <rect
+             x="50"
+             y="50"
+             width="10"
+             height="10"
+             fill="none"
+             stroke="#1e90ff"
+             stroke-width="3"
+             id="rect7-3"
+             style="stroke:#f97316;stroke-opacity:1" />
+          <rect
+             x="72"
+             y="50"
+             width="10"
+             height="10"
+             fill="#f97316"
+             id="rect8-5"
+             style="fill:#1e90ff;fill-opacity:1" />
+          <rect
+             x="28"
+             y="72"
+             width="10"
+             height="10"
+             fill="none"
+             stroke="#f97316"
+             stroke-width="2"
+             id="rect9-9"
+             style="stroke:#1e90ff;stroke-opacity:1" />
+          <rect
+             x="50"
+             y="72"
+             width="10"
+             height="10"
+             fill="none"
+             stroke="#f97316"
+             stroke-width="1.5"
+             opacity="0.4"
+             id="rect10-1"
+             style="stroke:#1e90ff;stroke-opacity:1" />
+          <rect
+             x="72"
+             y="72"
+             width="10"
+             height="10"
+             fill="none"
+             stroke="#f97316"
+             stroke-width="1.5"
+             opacity="0.4"
+             id="rect11-9"
+             style="stroke:#1e90ff;stroke-opacity:1" />
+          <g
+             stroke="#5a6f8a"
+             stroke-width="1.5"
+             fill="none"
+             opacity="0.3"
+             id="g14-1">
+            <polyline
+               points="8,20 8,8 20,8"
+               id="polyline11-6" />
+            <polyline
+               points="90,8 102,8 102,20"
+               id="polyline12-3" />
+            <polyline
+               points="102,90 102,102 90,102"
+               id="polyline13-6" />
+            <polyline
+               points="20,102 8,102 8,90"
+               id="polyline14-4" />
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>
