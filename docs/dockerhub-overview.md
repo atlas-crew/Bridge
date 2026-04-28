@@ -1,15 +1,15 @@
-# Inferno Lab
+# Bridge
 
-Unified web dashboard that orchestrates [Apparatus](https://hub.docker.com/r/nickcrew/apparatus), [Chimera](https://hub.docker.com/r/nickcrew/chimera), and [Crucible](https://hub.docker.com/r/nickcrew/crucible) from a single control plane — process management, dependency-ordered startup, health monitoring, and live log streaming.
+![Bridge](https://raw.githubusercontent.com/atlas-crew/Bridge/main/brand/banners/bridge-banner.png)
 
-Part of the [Inferno Lab](https://github.com/inferno-lab) security testing suite.
+Service orchestration layer for the [Atlas Crew Security](https://atlascrew.dev) stack — supervises [Apparatus](https://hub.docker.com/r/nickcrew/apparatus), [Chimera](https://hub.docker.com/r/nickcrew/chimera), [Crucible](https://hub.docker.com/r/nickcrew/crucible), Signal Horizon, and Synapse as native child processes from a single web dashboard.
 
 ## Quick Start
 
 ```bash
 docker run -p 4200:4200 \
   -v $(pwd)/config.yaml:/app/config.yaml \
-  nickcrew/inferno-lab
+  nickcrew/bridge
 ```
 
 - Dashboard: [localhost:4200](http://localhost:4200)
@@ -17,7 +17,7 @@ docker run -p 4200:4200 \
 - Health check: [localhost:4200/health](http://localhost:4200/health)
 - WebSocket: `ws://localhost:4200`
 
-> **Note:** Inferno Lab manages child processes defined in `config.yaml`. Mount your own config to point it at the right service binaries and URLs, or use the bundled default for a demo setup.
+> **Note:** Bridge manages child processes defined in `config.yaml`. Mount your own config to point it at the right service binaries and URLs, or use the bundled default for a demo setup.
 
 ## Configuration
 
@@ -32,7 +32,7 @@ docker run -p 4200:4200 \
 
 ```yaml
 lab:
-  name: "My Security Lab"
+  name: "Atlas Crew Stack"
   shutdownGracePeriodMs: 10000
 
 services:
@@ -53,29 +53,31 @@ services:
     dependencies: []
 
 profiles:
-  full-lab:
+  full-stack:
     description: "Start everything"
     services: ["apparatus"]
 ```
 
 ## What It Does
 
-Inferno Lab is not another managed service — it's the **control plane** for the Inferno Lab suite. Its job is to start, monitor, and coordinate the three sibling products so you can manage the full stack from one dashboard.
+Bridge is the **control plane** for the Atlas Crew Security suite. Its job is to start, monitor, and coordinate the sibling products so you can manage the full stack from one dashboard.
 
-- **Process management** — Start, stop, and restart services with graceful SIGTERM → SIGKILL shutdown
-- **Dependency-ordered startup** — Apparatus boots before Chimera, Chimera before Crucible; profiles define named subsets
-- **Health monitoring** — Live HTTP polling of each service's `/health` endpoint with latency tracking and failure detection
-- **Log aggregation** — Real-time stdout/stderr streaming from all services over WebSocket, with per-service filtering and text search
-- **Profiles** — Named presets (`full-lab`, `apparatus-only`, `chimera-stack`, `testing`) that spin up different subsets of the stack
+- **Process management** — Start, stop, restart, and force-stop services with graceful SIGTERM → SIGKILL shutdown
+- **Dependency-ordered lifecycle** — Topological sort on startup, reverse on shutdown; profiles define named subsets
+- **Health monitoring** — HTTP polling of each service's health endpoint with latency tracking and failure detection
+- **Resource monitoring** — Per-process CPU and memory tracking surfaced on every service card
+- **Log aggregation** — Real-time stdout/stderr streaming over WebSocket, with per-service filtering and text search
+- **Hot-reload config** — Edit `config.yaml` and reload without restarting Bridge
+- **Profiles** — Named presets (`full-stack`, `apparatus-only`, `chimera-stack`, `testing`) that spin up different subsets of the stack
 
-## Using Inferno Lab with Docker Compose
+## Using Bridge with Docker Compose
 
-Because Inferno Lab orchestrates child *processes* (not containers), the typical Docker Compose use case is to run it **alongside** the three services, mounting the config into the image. Here's the standard 4-service lab:
+Because Bridge orchestrates child *processes* (not containers), the typical Docker Compose use case is to run it **alongside** the three Dockerized services, mounting the config into the image. Here's the standard 4-service stack:
 
 ```yaml
 services:
-  inferno-lab:
-    image: nickcrew/inferno-lab
+  bridge:
+    image: nickcrew/bridge
     ports:
       - "4200:4200"
     volumes:
@@ -126,7 +128,7 @@ volumes:
   crucible-data:
 ```
 
-When running in Compose mode, point the `config.yaml` health check URLs at the service hostnames (`http://apparatus:8090/healthz`, `http://chimera:8880/health`, etc.) so Inferno Lab can reach them across the `lab` network.
+When running in Compose mode, point the `config.yaml` health check URLs at the service hostnames (`http://apparatus:8090/healthz`, `http://chimera:8880/health`, etc.) so Bridge can reach them across the `lab` network.
 
 ```bash
 docker compose up -d
@@ -134,27 +136,27 @@ docker compose up -d
 
 | Service | URL |
 |---------|-----|
-| Inferno Lab Dashboard | [localhost:4200](http://localhost:4200) |
+| Bridge Dashboard | [localhost:4200](http://localhost:4200) |
 | Apparatus Dashboard | [localhost:8090/dashboard](http://localhost:8090/dashboard) |
 | Chimera Portal | [localhost:8880](http://localhost:8880) |
 | Crucible UI | [localhost:3000](http://localhost:3000) |
 
 ## Native process management (recommended)
 
-Inferno Lab was designed to spawn services as **native child processes** on the host, not as sibling containers. This works best when running from npm directly:
+Bridge was designed to spawn services as **native child processes** on the host, not as sibling containers. This works best when running from npm directly:
 
 ```bash
-npm install -g @atlascrew/inferno-lab
-inferno-lab start
+npm install -g @atlascrew/bridge
+bridge start
 ```
 
-With this mode, `config.yaml` points `cwd` at each project directory and Inferno Lab runs `pnpm dev` (or any command) as a child process — capturing stdout/stderr, detecting readiness via regex patterns, and managing the full lifecycle. See the [GitHub README](https://github.com/inferno-lab/inferno-lab) for details.
+With this mode, `config.yaml` points `cwd` at each project directory and Bridge runs `pnpm dev` (or any command) as a child process — capturing stdout/stderr, detecting readiness via regex patterns, and managing the full lifecycle. See the [GitHub README](https://github.com/atlas-crew/Bridge) for details.
 
 ## Also available on npm
 
 ```bash
-npm install -g @atlascrew/inferno-lab
-inferno-lab start
+npm install -g @atlascrew/bridge
+bridge start
 ```
 
 ## Tags
@@ -166,8 +168,8 @@ inferno-lab start
 
 ## Links
 
-- [GitHub](https://github.com/inferno-lab/inferno-lab)
-- [npm](https://www.npmjs.com/package/@atlascrew/inferno-lab)
+- [GitHub](https://github.com/atlas-crew/Bridge)
+- [npm](https://www.npmjs.com/package/@atlascrew/bridge)
 - [Apparatus on Docker Hub](https://hub.docker.com/r/nickcrew/apparatus)
 - [Chimera on Docker Hub](https://hub.docker.com/r/nickcrew/chimera)
 - [Crucible on Docker Hub](https://hub.docker.com/r/nickcrew/crucible)
