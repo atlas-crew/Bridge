@@ -97,6 +97,52 @@ export function createRoutes({ configPath, processManager, healthMonitor, orches
     res.json(orchestrator.config.profiles);
   });
 
+  // Create or update a profile
+  router.post('/api/profiles', (req: Request, res: Response) => {
+    const body = req.body as {
+      name?: unknown;
+      description?: unknown;
+      services?: unknown;
+    };
+
+    const name = typeof body.name === 'string' ? body.name : '';
+    const description = typeof body.description === 'string' ? body.description : '';
+    const services = Array.isArray(body.services) ? body.services : null;
+
+    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(name)) {
+      res.status(400).json({ error: 'Profile name must be 1–64 chars of letters, digits, hyphen, or underscore' });
+      return;
+    }
+    if (!services || services.length === 0 || !services.every((s): s is string => typeof s === 'string')) {
+      res.status(400).json({ error: 'services must be a non-empty array of service ids' });
+      return;
+    }
+    const unknown = services.filter((id) => !orchestrator.config.services[id]);
+    if (unknown.length > 0) {
+      res.status(400).json({ error: `Unknown service id(s): ${unknown.join(', ')}` });
+      return;
+    }
+
+    const newConfig = {
+      ...orchestrator.config,
+      profiles: {
+        ...orchestrator.config.profiles,
+        [name]: {
+          description: description || `Saved at ${new Date().toISOString()}`,
+          services,
+        },
+      },
+    };
+
+    try {
+      const validated = configSchema.parse(newConfig);
+      saveConfig(validated, configPath);
+      res.json({ ok: true, profile: name });
+    } catch (err) {
+      res.status(400).json({ error: (err as Error).message });
+    }
+  });
+
   // Start a profile
   router.post('/api/profiles/:name/start', async (req: Request, res: Response) => {
     const name = param(req.params.name);
