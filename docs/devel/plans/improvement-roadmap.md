@@ -2,8 +2,9 @@
 
 - **Status:** Active
 - **Created:** 2026-04-23
-- **Last updated:** 2026-04-28
+- **Last updated:** 2026-04-30
 - **Active framing:** Shippable product (see §Framing)
+- **Decisions referenced:** `backlog/decisions/decision-1` (B1 scope)
 
 ## Framing
 
@@ -62,6 +63,12 @@ framing rather than sneak the work in.
   "second person/entity depends on this tool" criterion. The personal-tool
   opt-outs (no tagged releases past v0.1.0, no CHANGELOG, no
   just-in-case auth) are no longer in effect.
+- 2026-04-30 — Scoped B1 to origin-hardening only; deferred full token
+  auth as B1.5 pending deployment-shape change. See
+  `backlog/decisions/decision-1`. The framing-B trigger was "second user
+  depends on this tool," not "exposed publicly" — Bridge binds to
+  127.0.0.1 and is installed per-user on local hosts. Re-trigger
+  conditions for B1.5 are listed in the decision.
 
 ## Current state findings (2026-04-23)
 
@@ -173,22 +180,60 @@ Treat this as ambient fit-and-finish, not a milestone.
 
 *Re-activated 2026-04-28 when the project was scoped to be the
 orchestration layer for Atlas Crew Security. Recommended sequence below
-remains as written; B1 (auth) is the next concrete deliverable and
-unblocks the in-flight ConfigEditor merge.*
+remains as written; B1 (scoped origin hardening) is the next concrete
+deliverable and unblocks the in-flight ConfigEditor merge.*
 
 ### Tier 1 (B) — hardening before v1.0
 
-#### B1. Authentication on REST + WebSocket + ConfigEditor
+#### B1. Scoped origin hardening for ConfigEditor
 
-**Problem.** Unauthenticated mutating endpoints + a config editor that
-writes `command`/`args`/`cwd` = RCE by design.
+*Per `backlog/decisions/decision-1` (2026-04-30): Bridge's deployment
+shape is single-user localhost. Full token auth is deferred as B1.5.*
+
+**Problem.** ConfigEditor writes `command`/`args`/`cwd`, which is RCE
+by design. Under localhost-only the public-internet CSRF class is
+already blocked by the existing origin guard
+(`packages/server/src/utils.ts:37-56`), but two residual local-machine
+gaps remain:
+
+1. Cross-port localhost tabs — `isLocalOrigin` returns `true` for any
+   `localhost:*`, so a malicious page hosted on another local dev
+   server can call Bridge's API.
+2. No-Origin requests on mutating routes — `isLocalOrigin(undefined)`
+   returns `true`, so any local process can call `POST /api/config`.
 
 **Design sketch.**
-- Generate a token on first run, persist to `~/.inferno-lab/token`
-  with `chmod 600`; honor `INFERNO_LAB_TOKEN` env override.
-- Require token on all `POST` routes, WS upgrade (via query string or
+- Tighten the origin allowlist to require the *exact* Bridge dashboard
+  origin (host + port), not any localhost port.
+- Reject requests with no `Origin` header on mutating routes (POST,
+  PUT, DELETE) and on the WS upgrade. Keep no-Origin permissive on GET
+  routes so curl and the future CLI can still read state without
+  ceremony.
+
+**Acceptance criteria.**
+- Request with `Origin: http://localhost:5173` to a Bridge instance
+  served on `:4200` → 403.
+- `curl -X POST /api/services/apparatus/start` (no Origin) → 403.
+- `curl http://localhost:4200/api/services` (no Origin, GET) → 200.
+- WS upgrade with no Origin → 403 before protocol handshake.
+
+**Effort.** ~30–60 min.
+
+#### B1.5. Full token authentication *(deferred — gated on deployment shape change)*
+
+*Originally specified as B1 under the product-framing flip. Deferred per
+`backlog/decisions/decision-1`. Re-activate when any of the following
+triggers fire: Bridge runs on a shared host; Bridge is exposed beyond
+localhost (SSH tunnel, ngrok, `0.0.0.0` bind, container with published
+port); a non-trusted local process needs API isolation.*
+
+**Design sketch.**
+- Generate a token on first run, persist to `~/.bridge/token`
+  with `chmod 600`; honor `BRIDGE_TOKEN` env override.
+- Require token on all mutating routes, WS upgrade (via query string or
   `Sec-WebSocket-Protocol`), and any future config-mutation routes.
 - Tighten CORS to an origin allowlist read from config.
+- Expose token to CLI via env var or `bridge token show` subcommand.
 
 **Acceptance criteria.**
 - `curl -X POST /api/services/apparatus/start` without a token → 401.
@@ -221,22 +266,34 @@ orphaned processes on customer VMs.
 
 **Effort.** ~2 days including the `spawn` DI refactor.
 
-#### B3. PR-level CI workflow
+#### B3. PR-level CI workflow *(shipped 2026-04-30 — `9f46937`)*
 
 - `.github/workflows/pr.yml` on `pull_request` and push to `main`.
-- Jobs: `pnpm install --frozen-lockfile`, `type-check`, `build`, `test`.
-- Pin pnpm version (already done in `release.yml`).
-
-**Effort.** ~half day.
+- Jobs: `pnpm install --frozen-lockfile`, `type-check`, web build, server
+  build. Test job will be added when B2 lands.
+- Pinned pnpm 10.32.1 + Node 22 (matches `release.yml`).
 
 ### Tier 2 (B) — product polish
 
+- **CLI parity with the web UI.** Bridge today is a server launcher
+  (`bridge start | serve | help`); operations go through the dashboard or
+  REST/WS. Goal: every dashboard action available as a CLI subcommand
+  against a running server. Sketched surface: `bridge service
+  list|show|start|stop|restart|force-stop|logs`, `bridge profile
+  list|show|launch|save`, `bridge config show|edit|validate`, `bridge
+  status`, `bridge stop-all`. The CLI is an HTTP client of the running
+  server, not a re-implementation of supervisor logic — every subcommand
+  maps to an existing REST route. ~1.5 days with `commander` or `yargs`.
+  Open design questions: noun-verb vs verb-noun grouping; default
+  human-readable + `--json` for scripting.
 - **Audit log.** `{timestamp, actor, action, target, source}` for every
-  start/stop/restart and config write. JSONL at `~/.inferno-lab/audit.log`,
-  rotated at 10MB.
-- **"Save current selection as profile" UI.** `POST /api/profiles`
-  updates `config.yaml` via `saveConfig`; pair with SIGHUP reload so no
-  restart required.
+  start/stop/restart and config write. JSONL at `~/.bridge/audit.log`,
+  rotated at 10MB. Note: meaningful actor identity requires B1.5
+  (token auth).
+- **"Save current selection as profile" UI.** *(shipped 2026-04-30 —
+  `9c1ac3c` + `66d48f6`)* `POST /api/profiles` route + ProfileSelector
+  "Save Running" affordance. Hot-reload via `watchConfig` covered the
+  reload requirement — no SIGHUP plumbing needed.
 - **Observability.** `GET /metrics` in Prometheus text format
   (`services_up`, `health_check_latency_ms`, `service_restarts_total`,
   `supervisor_uptime_seconds`). Structured JSON logs with request IDs.
@@ -250,23 +307,31 @@ orphaned processes on customer VMs.
 - **`CHANGELOG.md`** — retroactive v0.1.0 entry, Keep a Changelog format.
 - **`CONTRIBUTING.md`** — dev setup, commit convention, PR expectations.
 
-### Recommended sequence (if B reactivates)
+### Recommended sequence
 
-1. B1 (auth) — unblocks ConfigEditor merge.
-2. B2 (tests) — in parallel; the `spawn` DI refactor is independent.
-3. B3 (PR CI) — trivial once tests exist.
-4. Tag v0.2.0 with hardening pass + ConfigEditor.
-5. Tier 2 alongside feature work; Tier 3 rolled into feature PRs.
+1. **B1 (scoped origin hardening)** — unblocks ConfigEditor under product
+   framing. ~30–60 min.
+2. **B2 (tests)** — in parallel with anything else; the `spawn` DI
+   refactor is independent. ~2 days.
+3. **CLI parity (Tier 2)** — independent; doesn't have to wait for
+   B1/B2. Slots in once a contributor has time.
+4. **Tag v0.2.0** with B1 hardening + ConfigEditor + save-as-profile
+   + CLI parity (whichever land first).
+5. Remaining Tier 2 (audit log, observability) alongside feature work;
+   Tier 3 rolled into feature PRs.
 
 ### Open questions (product framing)
 
-- Token distribution for the systemd-deployed appliance: systemd
-  `LoadCredential=`, environment file, or a `inferno-lab token show`
-  command?
-- Multi-user auth is out of scope for v1.0 per README's K8s stance —
-  confirm before auth design ossifies into single-token assumption.
+- ~~Token distribution for the systemd-deployed appliance~~ — N/A under
+  the localhost-only deployment shape (decision-1). Re-opens with B1.5.
+- ~~Multi-user auth is out of scope for v1.0~~ — confirmed by decision-1.
+  Multi-user re-opens only when deployment crosses a host boundary.
 - Config reload semantics: does SIGHUP restart running services whose
-  definition changed, or apply on next start?
+  definition changed, or apply on next start? *(Note: SIGHUP itself is
+  no longer needed — file-watching covers reload, see `watchConfig` in
+  `packages/server/src/config.ts:28`. Question is now: when config
+  changes, should running services whose definition changed be
+  auto-restarted, or apply only on next manual start?)*
 - Resource-monitor transport: WS deltas vs UI-scraped `/metrics`?
 
 ## Out of scope under either framing
