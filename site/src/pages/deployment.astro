@@ -1,0 +1,161 @@
+---
+import DocsLayout from '../layouts/DocsLayout.astro';
+import Mermaid from '../components/Mermaid.astro';
+
+const appliance = `flowchart TB
+  internet["Internet"] -->|:443 TLS| caddy["Caddy<br/>TLS · basic auth · headers"]
+  caddy -->|:4200 loopback| bridge["bridge<br/>(systemd unit)"]
+  subgraph services["Native child processes"]
+    p1["apparatus"]
+    p2["chimera-api"]
+    p3["chimera-web"]
+    p4["crucible"]
+  end
+  bridge -.spawn.-> p1
+  bridge -.spawn.-> p2
+  bridge -.spawn.-> p3
+  bridge -.spawn.-> p4
+  classDef edge fill:#1a2235,stroke:#f97316,color:#f97316;
+  class caddy edge;`;
+
+const k8sShape = `flowchart LR
+  k8s["Kubernetes Pod"] --> img["Single image<br/>bridge + apparatus + chimera + crucible"]
+  img --> bridge["bridge process"]
+  bridge --> apparatus["apparatus child"]
+  bridge --> chimera["chimera child"]
+  bridge --> crucible["crucible child"]`;
+
+const toc = [
+  { id: 'shape', label: 'Recommended shape: lab appliance' },
+  { id: 'provision', label: 'Provision the host' },
+  { id: 'install-managed', label: 'Install Bridge + managed services' },
+  { id: 'config', label: 'Drop the production config' },
+  { id: 'systemd', label: 'systemd unit' },
+  { id: 'caddy', label: 'Caddy reverse proxy' },
+  { id: 'verify', label: 'Verify the deployment' },
+  { id: 'docker', label: 'Single-container Docker' },
+  { id: 'multi-tenant', label: 'Multi-tenant via Kubernetes' },
+];
+---
+
+<DocsLayout
+  title="Deployment"
+  pageKicker="Operate"
+  pageTitle="Deployment"
+  description="Bridge is intentionally single-host. The recommended production shape is a lab appliance — a dedicated VM running Bridge under systemd, fronted by Caddy for TLS and basic auth. This guide walks through every step."
+  toc={toc}
+>
+  <h2 id="shape">Recommended shape: lab appliance</h2>
+  <p>
+    Bridge is a <strong>single-host process supervisor</strong>. It spawns and manages services as native child processes on one machine. The natural production deployment is a "lab appliance": a dedicated VM where the managed packages are installed system-wide, Bridge runs as a systemd service, and a reverse proxy fronts the dashboard for TLS and authentication.
+  </p>
+
+  <Mermaid code={appliance} label="Lab appliance deployment shape" />
+
+  <p>
+    The rest of this page walks through that shape end-to-end. The same VM can run anywhere from 4 to 12 managed services depending on what they each need.
+  </p>
+
+  <h2 id="provision">Provision the host</h2>
+  <p>Create a system user and the data directories Bridge and the managed services will use:</p>
+
+  <pre is:raw><code># Create the system user and data directories
+sudo useradd --system --home /var/lib/bridge --shell /usr/sbin/nologin bridge
+sudo mkdir -p /var/lib/bridge/{apparatus,chimera,crucible}
+sudo mkdir -p /etc/bridge
+sudo chown -R bridge:bridge /var/lib/bridge</code></pre>
+
+  <p>The <code>bridge</code> user has no shell — it exists solely to own the supervisor and its children. Each managed service's working directory lives under <code>/var/lib/bridge/&lt;service&gt;</code>.</p>
+
+  <h2 id="install-managed">Install Bridge + managed services</h2>
+  <p>Install Bridge and the Node-based managed services from npm:</p>
+
+  <pre is:raw><code>sudo npm install -g @atlascrew/bridge @atlascrew/apparatus @atlascrew/crucible</code></pre>
+
+  <p>For Python services like Chimera, use pipx so you get an isolated environment per package:</p>
+
+  <pre is:raw><code>sudo pipx install chimera-api  # or: sudo pip install chimera-api</code></pre>
+
+  <p>The recommendation here is package manager parity: install everything system-wide so the supervisor can address them by absolute path or by name on <code>$PATH</code>, without each service trying to manage its own runtime.</p>
+
+  <h2 id="config">Drop the production config</h2>
+  <pre is:raw><code>sudo cp examples/production.yaml /etc/bridge/config.yaml
+sudo chown bridge:bridge /etc/bridge/config.yaml
+sudo chmod 640 /etc/bridge/config.yaml</code></pre>
+
+  <p>
+    The <code>examples/production.yaml</code> file in the repo is preconfigured to use installed binaries (no <code>$DEV_ROOT</code>), bind all services to <code>127.0.0.1</code>, persist data under <code>/var/lib/bridge/</code>, and run Chimera in <code>strict</code> mode (dangerous endpoints return 403).
+  </p>
+
+  <h2 id="systemd">systemd unit</h2>
+  <p>Drop the unit file and enable it:</p>
+
+  <pre is:raw><code>sudo cp examples/bridge.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now bridge</code></pre>
+
+  <p>The included <code>bridge.service</code> applies hardening flags suited to a process supervisor:</p>
+  <ul>
+    <li><code>NoNewPrivileges=yes</code> — child processes cannot escalate privileges</li>
+    <li><code>ProtectSystem=strict</code> with explicit <code>ReadWritePaths=</code> for <code>/var/lib/bridge</code></li>
+    <li><code>PrivateTmp=yes</code> — isolated <code>/tmp</code> per service unit</li>
+    <li><code>Restart=on-failure</code> with <code>RestartSec=5</code> and <code>StartLimitBurst=3</code> to avoid restart loops</li>
+    <li><code>StandardOutput=journal</code> + <code>StandardError=journal</code> for unified <code>journalctl</code> logs</li>
+  </ul>
+
+  <h2 id="caddy">Caddy reverse proxy</h2>
+  <p>
+    Bridge binds to <code>127.0.0.1:4200</code> and is never exposed directly. Caddy (or nginx) provides TLS termination, basic authentication, security headers, and the WebSocket upgrade for live log streaming.
+  </p>
+
+  <pre is:raw><code># Generate a password hash for the dashboard
+caddy hash-password
+
+# Drop the Caddyfile and edit bridge.example.com + the hash
+sudo cp examples/Caddyfile /etc/caddy/Caddyfile
+sudo $EDITOR /etc/caddy/Caddyfile
+sudo systemctl reload caddy</code></pre>
+
+  <p>The included <code>Caddyfile</code> handles automatic TLS via Let's Encrypt, basic auth, the WebSocket upgrade, security headers (HSTS, CSP, X-Frame-Options), and includes optional IP allowlisting.</p>
+
+  <h2 id="verify">Verify the deployment</h2>
+  <pre is:raw><code># systemd state
+systemctl status bridge
+
+# Live logs
+journalctl -u bridge -f
+
+# Server health (loopback)
+curl -s http://127.0.0.1:4200/health
+
+# Public health (through Caddy)
+curl -s -u admin:password https://bridge.example.com/health</code></pre>
+
+  <p>Open <code>https://bridge.example.com</code>, log in, and pick a profile in the launcher. Bridge brings the services up in dependency order, streams their logs to the dashboard, and begins polling health endpoints.</p>
+
+  <h2 id="docker">Single-container Docker</h2>
+  <p>For ephemeral demos or sandboxed evaluation, a single Docker container is enough:</p>
+
+  <pre is:raw><code>docker run -d --name bridge \
+  -p 4200:4200 \
+  -v /etc/bridge/config.yaml:/app/config.yaml:ro \
+  --restart unless-stopped \
+  nickcrew/bridge:latest</code></pre>
+
+  <p>Pair it with Caddy in front using <a href="/install#docker-compose">Docker Compose</a> if you need TLS.</p>
+
+  <h2 id="multi-tenant">Multi-tenant via Kubernetes</h2>
+  <p>
+    For multi-tenant scenarios — like running 30 isolated labs for a training cohort — the recommended pattern is to <strong>build a Docker image that bundles the managed services + Bridge inside one container</strong>, then deploy N instances with Kubernetes. Each user gets a namespace and a private lab.
+  </p>
+
+  <Mermaid code={k8sShape} label="Multi-tenant deployment using Kubernetes around Bridge containers" />
+
+  <p>
+    Use Kubernetes to orchestrate <em>containers</em>; use Bridge to orchestrate <em>processes inside each container</em>. This separation keeps Bridge's mental model honest — one host, native processes — while letting you scale to dozens of independent labs.
+  </p>
+
+  <p>
+    Don't try to use Bridge to manage services across multiple hosts. It isn't built for that, and the model breaks: process supervision, signal-based shutdown, and resource sampling all assume same-host kernel access. If you need cross-host scheduling, that's Kubernetes' job.
+  </p>
+</DocsLayout>

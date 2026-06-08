@@ -1,0 +1,85 @@
+---
+interface TocItem {
+  id: string;
+  label: string;
+}
+interface Props {
+  toc?: TocItem[];
+}
+const { toc = [] } = Astro.props;
+
+const path = Astro.url.pathname;
+const sections = [
+  {
+    label: 'Getting started',
+    links: [
+      { href: '/', label: 'Overview' },
+      { href: '/install', label: 'Installation' },
+      { href: '/architecture', label: 'Architecture' },
+    ],
+  },
+  {
+    label: 'Reference',
+    links: [
+      { href: '/services', label: 'Managed services' },
+      { href: '/configuration', label: 'Configuration' },
+      { href: '/cli', label: 'CLI' },
+      { href: '/api', label: 'API' },
+    ],
+  },
+  {
+    label: 'Operate',
+    links: [
+      { href: '/dashboard', label: 'Dashboard tour' },
+      { href: '/deployment', label: 'Deployment' },
+    ],
+  },
+];
+
+const isActive = (href: string) => path === href;
+---
+
+<aside class="hidden lg:block w-64 shrink-0 border-r border-[var(--color-border)] sticky top-[3.75rem] self-start max-h-[calc(100vh-3.75rem)] overflow-y-auto">
+  <nav class="px-6 py-8 space-y-7" aria-label="Documentation sections">
+    {sections.map((section) => (
+      <div>
+        <h3 class="type-label mb-2 text-[0.7rem] text-[var(--color-text-muted)]">{section.label}</h3>
+        <ul class="space-y-0.5">
+          {section.links.map((l) => (
+            <li>
+              <a
+                href={l.href}
+                class:list={[
+                  'block rounded-md px-2.5 py-1.5 type-body text-[0.85rem] transition-colors',
+                  isActive(l.href)
+                    ? 'bg-[color:var(--color-brand-blue)]/10 text-[var(--color-brand-blue)] font-medium'
+                    : 'text-[var(--color-text-dim)] hover:bg-[color:var(--color-surface-raised)] hover:text-[var(--color-text)]',
+                ]}
+              >
+                {l.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+
+    {toc.length > 0 && (
+      <div>
+        <h3 class="type-label mb-2 text-[0.7rem] text-[var(--color-text-muted)]">On this page</h3>
+        <ul class="space-y-0.5 border-l border-[var(--color-border)]">
+          {toc.map((item) => (
+            <li>
+              <a
+                href={`#${item.id}`}
+                class="block border-l-2 border-transparent pl-3 -ml-px py-1 type-body text-[0.78rem] text-[var(--color-text-dim)] transition-colors hover:border-[var(--color-brand-blue)] hover:text-[var(--color-brand-blue)]"
+              >
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+  </nav>
+</aside>

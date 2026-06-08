@@ -1,0 +1,132 @@
+---
+import DocsLayout from '../layouts/DocsLayout.astro';
+import Mermaid from '../components/Mermaid.astro';
+
+const layout = `flowchart TB
+  subgraph dash["Dashboard layout"]
+    direction TB
+    header["Header — lockup · lab pill · profile launcher · STOP ALL"]
+    nav["View switcher — DASHBOARD ↔ CONFIG"]
+    grid["Service grid — one card per service"]
+    logs["Log panel — resizable, dockable, filterable"]
+  end
+  header --- nav
+  nav --- grid
+  grid --- logs`;
+
+const toc = [
+  { id: 'header', label: 'Header' },
+  { id: 'profile-launcher', label: 'Profile launcher' },
+  { id: 'service-grid', label: 'Service grid' },
+  { id: 'service-card', label: 'Service card' },
+  { id: 'log-panel', label: 'Log panel' },
+  { id: 'config-editor', label: 'Config editor' },
+  { id: 'connection-state', label: 'Connection state' },
+];
+---
+
+<DocsLayout
+  title="Dashboard tour"
+  pageKicker="Operate"
+  pageTitle="Dashboard tour"
+  description="A walkthrough of the Bridge dashboard — what each region does, what the status colors mean, and how to read a service card at a glance."
+  toc={toc}
+>
+  <p>
+    The Bridge dashboard is a single-page React app served by the Bridge server. It connects to the server over WebSocket on load and stays in sync with the supervisor's state until you close the tab.
+  </p>
+
+  <Mermaid code={layout} label="Dashboard region layout" />
+
+  <h2 id="header">Header</h2>
+  <p>The top bar runs across the full width and contains four regions:</p>
+  <ul>
+    <li><strong>Bridge lockup</strong> — the icon plus "Bridge — Service Orchestrator" wordmark on the left.</li>
+    <li><strong>Lab pill</strong> — shows the lab name from <code>config.yaml</code> with a connection indicator pulsing under it (<span class="text-[var(--color-state-running)]">CONNECTED</span> or <span class="text-[var(--color-state-crashed)]">RECONNECTING</span>).</li>
+    <li><strong>View switcher</strong> — toggle between <code>DASHBOARD</code> (service grid + logs) and <code>CONFIG</code> (in-browser config editor).</li>
+    <li><strong>Profile launcher</strong> — the dropdown for starting profiles. Visible in dashboard view only.</li>
+    <li><strong>Stop All</strong> — emergency-stop button on the right. Sends <code>STOP_ALL</code>, which reverses the dependency graph and stops every running service.</li>
+  </ul>
+
+  <h2 id="profile-launcher">Profile launcher</h2>
+  <p>
+    The profile launcher reads from <code>profiles</code> in your config. Picking one and clicking <strong>Start</strong> sends <code>START_PROFILE</code> to the server, which:
+  </p>
+  <ol>
+    <li>Resolves the full set of services (the named services plus their transitive <code>dependencies</code>)</li>
+    <li>Topologically sorts them</li>
+    <li>Starts each one and waits for readiness before moving on</li>
+  </ol>
+  <p>The dashboard streams <code>SERVICE_UPDATE</code> messages as each comes up, so the cards animate in order.</p>
+
+  <h2 id="service-grid">Service grid</h2>
+  <p>
+    The grid renders one card per service defined in the config — <em>not</em> just the services in the active profile. Cards for stopped services show as inert; running ones show live metrics.
+  </p>
+  <p>Cards reorder by status: running first, then starting, then crashed, then stopped. Within each status group they keep their config-order position.</p>
+
+  <h2 id="service-card">Service card</h2>
+  <p>Each card surfaces seven things:</p>
+  <table>
+    <thead>
+      <tr><th>Region</th><th>What it shows</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Status pill</strong></td><td><code>STOPPED</code> · <code>STARTING</code> · <code>RUNNING</code> · <code>CRASHED</code> with brand-coded colors</td></tr>
+      <tr><td><strong>Service name</strong></td><td><code>name</code> from config (e.g. "Apparatus")</td></tr>
+      <tr><td><strong>Health indicator</strong></td><td>Green dot + latency in ms when healthy, red dot + last error when not</td></tr>
+      <tr><td><strong>Ports</strong></td><td>Each <code>ports</code> entry as a clickable link (<code>http://localhost:8090</code> opens the service)</td></tr>
+      <tr><td><strong>CPU + memory</strong></td><td>Live samples from <code>ResourceMonitor</code>, refreshed on each WS tick</td></tr>
+      <tr><td><strong>Recent stderr</strong></td><td>If the service is crashed, the last few lines from stderr are shown inline so you can debug without opening logs</td></tr>
+      <tr><td><strong>Action menu</strong></td><td>Start · Stop (graceful) · Force stop (SIGKILL) · Restart</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    Health latency is rendered in the <strong>Metric</strong> type role from the brand system — full-mono with CASL 0.6 — so columns of running services align cleanly across the grid.
+  </p>
+
+  <h2 id="log-panel">Log panel</h2>
+  <p>
+    The log panel sits at the bottom of the dashboard and is resizable. It subscribes to <code>LOG_OUTPUT</code> and <code>LOG_BATCH</code> messages on the WebSocket when opened and unsubscribes when collapsed — so background tabs don't accumulate log traffic.
+  </p>
+  <p>Toolbar features:</p>
+  <ul>
+    <li><strong>Service filter</strong> — multi-select pills across the top; click to show/hide each service's lines</li>
+    <li><strong>Search</strong> — full-text search across visible lines, with match highlighting</li>
+    <li><strong>Auto-scroll toggle</strong> — pin to bottom (default) or freeze for inspection</li>
+    <li><strong>Stream/stderr distinction</strong> — stderr lines are colored to stand out from stdout</li>
+    <li><strong>Clear</strong> — drop the local buffer (server-side ring buffer is unaffected)</li>
+  </ul>
+  <p>
+    The server keeps the most recent ~5,000 lines per service in a ring buffer. When a client connects, it receives the buffer and then catches up to live stream.
+  </p>
+
+  <h2 id="config-editor">Config editor</h2>
+  <p>
+    The <code>CONFIG</code> view loads the current <code>config.yaml</code> over <code>GET /api/config</code> and renders it in a Monaco editor with YAML syntax. Saving:
+  </p>
+  <ol>
+    <li>Validates the document against the Zod schema client-side</li>
+    <li>POSTs to <code>/api/config</code> if valid</li>
+    <li>The server re-validates, writes the file atomically, and broadcasts <code>CONFIG_RELOADED</code></li>
+  </ol>
+  <p>Validation errors are shown inline on the relevant lines. Running services are not affected — see <a href="/configuration#hot-reload">hot reload semantics</a>.</p>
+
+  <h2 id="connection-state">Connection state</h2>
+  <p>
+    The connection indicator in the lab pill reflects the WebSocket's state:
+  </p>
+  <table>
+    <thead>
+      <tr><th>State</th><th>Meaning</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>CONNECTED</code></td><td>WebSocket is open and the server has sent at least one <code>LAB_STATE</code> snapshot</td></tr>
+      <tr><td><code>RECONNECTING</code></td><td>The socket dropped; the client is retrying with exponential backoff</td></tr>
+    </tbody>
+  </table>
+  <p>
+    On reconnect, the server sends a fresh <code>LAB_STATE</code> snapshot so the dashboard never drifts out of sync. Service controls are disabled while reconnecting.
+  </p>
+</DocsLayout>

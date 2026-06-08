@@ -1,0 +1,157 @@
+---
+import DocsLayout from '../layouts/DocsLayout.astro';
+import Mermaid from '../components/Mermaid.astro';
+import ServiceCard from '../components/ServiceCard.astro';
+
+const fullLab = `flowchart LR
+  apparatus(["Apparatus"]) --> chimera_api(["Chimera API"])
+  chimera_api --> chimera_web(["Chimera Web"])
+  chimera_api --> crucible(["Crucible"])
+  apparatus --> sh_api(["Signal Horizon API"])
+  sh_api --> sh_ui(["Signal Horizon UI"])
+  sh_api --> synapse(["Synapse Pingora"])
+  chimera_api --> synapse
+  classDef root fill:#131a2a,stroke:#f97316,color:#e8eef7;
+  class apparatus root;`;
+
+const edgeProtection = `flowchart LR
+  apparatus(["Apparatus"]) --> chimera_api(["Chimera API"])
+  sh_api(["Signal Horizon API"]) --> sh_ui(["Signal Horizon UI"])
+  sh_api --> synapse(["Synapse Pingora"])
+  chimera_api --> synapse`;
+
+const chimeraStack = `flowchart LR
+  apparatus(["Apparatus"]) --> chimera_api(["Chimera API"])
+  chimera_api --> chimera_web(["Chimera Web"])`;
+
+const services = [
+  {
+    icon: '/brand/icons/apparatus-icon.svg',
+    name: 'Apparatus',
+    role: 'Multi-protocol security lab — HTTP/HTTPS, gRPC, TCP/UDP echo, redis-mock. Acts as the "noise generator" the rest of the stack runs against.',
+    ports: '8090 (HTTP) · 8443 (HTTPS) · 50051 (gRPC) · 9090/9001 (echo) · 6380 (redis-mock)',
+    health: '/healthz',
+    repo: 'https://github.com/nickcrew/apparatus',
+  },
+  {
+    icon: '/brand/icons/chimera-icon.svg',
+    name: 'Chimera API',
+    role: 'Vulnerable application backend (Flask). Intentionally insecure endpoints, configurable demo mode, optional Apparatus integration.',
+    ports: '8880',
+    health: '/health',
+    repo: 'https://github.com/nickcrew/chimera',
+  },
+  {
+    icon: '/brand/icons/chimera-icon.svg',
+    name: 'Chimera Web',
+    role: 'Vulnerable React frontend that exercises Chimera API. Used as a target for offensive testing tools.',
+    ports: '5175',
+    health: '/',
+    repo: 'https://github.com/nickcrew/chimera',
+  },
+  {
+    icon: '/brand/icons/crucible-icon.svg',
+    name: 'Crucible',
+    role: 'Attack simulation engine that drives traffic against the lab. Has a backend at :3001 and a demo dashboard at :3000.',
+    ports: '3000 (UI) · 3001 (API)',
+    health: '/health',
+    repo: 'https://github.com/nickcrew/crucible',
+  },
+  {
+    icon: '/brand/icons/synapse-icon.svg',
+    name: 'Signal Horizon API',
+    role: 'Edge-protection signal ingest. Aggregates traffic signals for the WAF layer.',
+    ports: '3100',
+    health: '/health',
+    repo: 'https://github.com/atlas-crew/edge-protection',
+  },
+  {
+    icon: '/brand/icons/synapse-icon.svg',
+    name: 'Signal Horizon UI',
+    role: 'Edge-protection dashboard for inspecting signals and policy decisions.',
+    ports: '5180',
+    health: '/',
+    repo: 'https://github.com/atlas-crew/edge-protection',
+  },
+  {
+    icon: '/brand/icons/synapse-icon.svg',
+    name: 'Synapse Pingora',
+    role: 'Pingora-based WAF gateway sitting in front of Chimera, consuming Signal Horizon decisions.',
+    ports: '6191 (admin)',
+    health: '/health',
+    repo: 'https://github.com/atlas-crew/synapse',
+  },
+];
+
+const toc = [
+  { id: 'managed', label: 'Managed services' },
+  { id: 'profiles', label: 'Profile shapes' },
+  { id: 'custom', label: 'Adding a custom service' },
+];
+---
+
+<DocsLayout
+  title="Managed services"
+  pageKicker="Reference"
+  pageTitle="Managed services"
+  description="The default config.yaml wires up the Atlas Crew Security stack: Apparatus, Chimera, Crucible, Signal Horizon, and Synapse. Each managed service has a role, a health endpoint, and a place in the dependency graph."
+  toc={toc}
+>
+  <h2 id="managed">Managed services</h2>
+  <p>
+    The set of services Bridge supervises is defined entirely in <code>config.yaml</code>. The cards below are the defaults shipped with the package — your own config can add, remove, or replace any of them.
+  </p>
+
+  <div class="grid sm:grid-cols-2 gap-4 mt-6 not-prose">
+    {services.map((s) => (
+      <ServiceCard icon={s.icon} name={s.name} role={s.role} ports={s.ports} health={s.health} href={s.repo} />
+    ))}
+  </div>
+
+  <h2 id="profiles">Profile shapes</h2>
+  <p>
+    Profiles are named subsets of services with their dependencies. Bridge ships with five out of the box; you can add your own under <code>profiles</code> in the config.
+  </p>
+
+  <h3>full-lab</h3>
+  <p>Every managed service. The default for "give me everything."</p>
+  <Mermaid code={fullLab} label="full-lab profile dependency graph" />
+
+  <h3>edge-protection</h3>
+  <p>Signal Horizon + Synapse WAF stack, plus the upstream services they protect.</p>
+  <Mermaid code={edgeProtection} label="edge-protection profile graph" />
+
+  <h3>chimera-stack</h3>
+  <p>Apparatus + Chimera API + Chimera Web. The classic offensive-testing target.</p>
+  <Mermaid code={chimeraStack} label="chimera-stack profile graph" />
+
+  <h3>apparatus-only</h3>
+  <p>Apparatus by itself — useful when you're only exercising the protocol matrix.</p>
+
+  <h3>testing</h3>
+  <p>Apparatus + Chimera API + Crucible. Lets Crucible drive Chimera without the frontend or the WAF.</p>
+
+  <h2 id="custom">Adding a custom service</h2>
+  <p>Any process with a stable HTTP health endpoint can be added. The minimum schema is:</p>
+
+  <pre is:raw><code>services:
+  my-service:
+    name: "My Service"
+    cwd: "/opt/my-service"
+    command: "node"
+    args: ["dist/server.js"]
+    healthCheck:
+      url: "http://127.0.0.1:9000/healthz"
+      intervalMs: 5000
+      timeoutMs: 3000
+    ports:
+      http: 9000
+    env:
+      LOG_LEVEL: "info"
+    readyPattern: "listening on"
+    dependencies: []</code></pre>
+
+  <p>
+    Add it to a profile to bring it up alongside other services, or start it ad-hoc from the dashboard. See the <a href="/configuration">full configuration reference</a> for every available field.
+  </p>
+</DocsLayout>

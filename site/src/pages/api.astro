@@ -1,0 +1,204 @@
+---
+import DocsLayout from '../layouts/DocsLayout.astro';
+
+const toc = [
+  { id: 'rest', label: 'REST endpoints' },
+  { id: 'health', label: 'GET /health' },
+  { id: 'services-rest', label: 'Service endpoints' },
+  { id: 'profiles-rest', label: 'Profile endpoints' },
+  { id: 'config-rest', label: 'Config endpoints' },
+  { id: 'ws', label: 'WebSocket protocol' },
+  { id: 'server-messages', label: 'Server messages' },
+  { id: 'client-messages', label: 'Client messages' },
+  { id: 'examples', label: 'Examples' },
+  { id: 'security', label: 'Security' },
+];
+---
+
+<DocsLayout
+  title="API reference"
+  pageKicker="Reference"
+  pageTitle="API reference"
+  description="Bridge exposes a REST API for control-plane operations and a WebSocket stream for real-time state. This is the full surface — every route, every message type, every shape."
+  toc={toc}
+>
+  <p>
+    The Bridge server has two API surfaces. The <strong>REST API</strong> covers control-plane operations (start a service, write the config) and is great for scripting. The <strong>WebSocket API</strong> streams real-time state and is what the dashboard uses; subscribe if you're building a custom UI.
+  </p>
+
+  <h2 id="rest">REST endpoints</h2>
+  <table>
+    <thead>
+      <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>GET</td><td><code>/health</code></td><td>Server-level health check (the dashboard server itself, not managed services).</td></tr>
+      <tr><td>GET</td><td><code>/api/services</code></td><td>List all services with their current status.</td></tr>
+      <tr><td>GET</td><td><code>/api/services/:id</code></td><td>Get one service by id.</td></tr>
+      <tr><td>POST</td><td><code>/api/services/:id/start</code></td><td>Start a service.</td></tr>
+      <tr><td>POST</td><td><code>/api/services/:id/stop</code></td><td>Stop gracefully (SIGTERM with grace period).</td></tr>
+      <tr><td>POST</td><td><code>/api/services/:id/force-stop</code></td><td>Force-stop (SIGKILL).</td></tr>
+      <tr><td>POST</td><td><code>/api/services/:id/restart</code></td><td>Restart a service.</td></tr>
+      <tr><td>GET</td><td><code>/api/profiles</code></td><td>List configured profiles.</td></tr>
+      <tr><td>POST</td><td><code>/api/profiles</code></td><td>Create or update a profile.</td></tr>
+      <tr><td>POST</td><td><code>/api/profiles/:name/start</code></td><td>Start every service in a profile in dependency order.</td></tr>
+      <tr><td>POST</td><td><code>/api/stop-all</code></td><td>Stop every running service.</td></tr>
+      <tr><td>GET</td><td><code>/api/config</code></td><td>Read the active config (raw YAML).</td></tr>
+      <tr><td>POST</td><td><code>/api/config</code></td><td>Write a new config; triggers hot-reload.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="health">GET /health</h2>
+  <pre is:raw><code>$ curl http://localhost:4200/health
+{
+  "status": "ok",
+  "timestamp": 1730323200000,
+  "lab": "Production Lab"
+}</code></pre>
+
+  <p>Returns 200 as long as the server is running. Does <em>not</em> reflect the health of managed services — for that, check <code>/api/services</code>.</p>
+
+  <h2 id="services-rest">Service endpoints</h2>
+
+  <h3>GET /api/services</h3>
+  <pre is:raw><code>{
+  "id": "apparatus",
+  "name": "Apparatus",
+  "state": "running",
+  "pid": 12453,
+  "startedAt": 1730323105210,
+  "ports": { "http1": 8090, "http2": 8443 },
+  "dependencies": [],
+  "health": {
+    "healthy": true,
+    "latencyMs": 12,
+    "lastCheckedAt": 1730323218000
+  },
+  "resources": {
+    "cpuPercent": 1.2,
+    "memoryMb": 134
+  }
+}</code></pre>
+
+  <p>Returns an array of these shapes for every service in the config.</p>
+
+  <h3>POST /api/services/:id/start</h3>
+  <pre is:raw><code>$ curl -X POST http://localhost:4200/api/services/apparatus/start
+{ "ok": true, "service": { "id": "apparatus", "state": "starting", ... } }</code></pre>
+
+  <p>Returns 404 if the service id isn't in the config, 500 if the spawn fails (with the error message in <code>error</code>).</p>
+
+  <h3>POST /api/services/:id/stop · /force-stop · /restart</h3>
+  <p>Same response shape as <code>start</code>. <code>stop</code> sends SIGTERM with grace period; <code>force-stop</code> sends SIGKILL; <code>restart</code> stops then starts.</p>
+
+  <h2 id="profiles-rest">Profile endpoints</h2>
+
+  <h3>GET /api/profiles</h3>
+  <pre is:raw><code>{
+  "full-lab": {
+    "description": "All managed services",
+    "services": ["apparatus", "chimera-api", "chimera-web", "crucible"]
+  },
+  "testing": {
+    "description": "Apparatus + Chimera API + Crucible",
+    "services": ["apparatus", "chimera-api", "crucible"]
+  }
+}</code></pre>
+
+  <h3>POST /api/profiles</h3>
+  <p>Create or update a profile. Body:</p>
+  <pre is:raw><code>{
+  "name": "my-profile",
+  "description": "What this profile is for",
+  "services": ["apparatus", "chimera-api"]
+}</code></pre>
+
+  <p>Validation:</p>
+  <ul>
+    <li><code>name</code> must be 1–64 characters of letters, digits, hyphens, or underscores</li>
+    <li><code>services</code> must be a non-empty array of strings</li>
+    <li>Every service id must exist in <code>services</code></li>
+  </ul>
+
+  <h3>POST /api/profiles/:name/start</h3>
+  <p>Resolves the profile + transitive dependencies, topologically sorts, and starts each in turn. Returns immediately with <code is:raw>{ ok: true }</code>; service state changes stream over WebSocket.</p>
+
+  <h2 id="config-rest">Config endpoints</h2>
+
+  <h3>GET /api/config</h3>
+  <p>Returns the current <code>config.yaml</code> as text (Content-Type: <code>application/x-yaml</code>).</p>
+
+  <h3>POST /api/config</h3>
+  <p>Body: the new YAML as a string. The server validates it against the Zod schema, writes the file atomically, and broadcasts <code>CONFIG_RELOADED</code>. Returns 400 with structured errors on validation failure.</p>
+
+  <h2 id="ws">WebSocket protocol</h2>
+  <p>
+    Connect to <code>ws://localhost:4200/ws</code>. On connection the server sends a single <code>LAB_STATE</code> snapshot containing the full lab state. After that, the connection is bidirectional — the server pushes deltas, the client pushes commands.
+  </p>
+
+  <pre is:raw><code>const ws = new WebSocket('ws://localhost:4200/ws');
+ws.addEventListener('message', (e) => {{
+  const msg = JSON.parse(e.data);
+  console.log(msg.type, msg);
+}});
+
+// Start a service
+ws.send(JSON.stringify({{ type: 'START_SERVICE', id: 'apparatus' }}));</code></pre>
+
+  <h2 id="server-messages">Server → client messages</h2>
+  <table>
+    <thead>
+      <tr><th>Type</th><th>Payload</th><th>Meaning</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>LAB_STATE</code></td><td><code is:raw>{ lab, services[], profiles }</code></td><td>Full snapshot. Sent once on connect.</td></tr>
+      <tr><td><code>SERVICE_UPDATE</code></td><td><code is:raw>{ id, state, pid?, startedAt? }</code></td><td>Lifecycle / state change for one service.</td></tr>
+      <tr><td><code>HEALTH_UPDATE</code></td><td><code is:raw>{ id, healthy, latencyMs, lastCheckedAt }</code></td><td>Health-poll result.</td></tr>
+      <tr><td><code>RESOURCES_UPDATE</code></td><td><code is:raw>{ id, cpuPercent, memoryMb }</code></td><td>CPU + memory sample.</td></tr>
+      <tr><td><code>LOG_OUTPUT</code></td><td><code is:raw>{ id, stream, line, ts }</code></td><td>One log line. <code>stream</code> is <code>"stdout"</code> or <code>"stderr"</code>.</td></tr>
+      <tr><td><code>LOG_BATCH</code></td><td><code is:raw>{ id, lines[] }</code></td><td>Replay batch when subscribing to a service's logs.</td></tr>
+      <tr><td><code>CONFIG_RELOADED</code></td><td><code is:raw>{ config }</code></td><td>The config file changed and was successfully reloaded.</td></tr>
+      <tr><td><code>PROFILE_STARTED</code></td><td><code is:raw>{ name, services[] }</code></td><td>A profile finished bringing up its services.</td></tr>
+      <tr><td><code>ERROR</code></td><td><code is:raw>{ message, context? }</code></td><td>Operator-visible error.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="client-messages">Client → server messages</h2>
+  <table>
+    <thead>
+      <tr><th>Type</th><th>Payload</th><th>Effect</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>START_SERVICE</code></td><td><code is:raw>{ id }</code></td><td>Start a service.</td></tr>
+      <tr><td><code>STOP_SERVICE</code></td><td><code is:raw>{ id }</code></td><td>SIGTERM + grace period.</td></tr>
+      <tr><td><code>FORCE_STOP_SERVICE</code></td><td><code is:raw>{ id }</code></td><td>SIGKILL.</td></tr>
+      <tr><td><code>RESTART_SERVICE</code></td><td><code is:raw>{ id }</code></td><td>Stop then start.</td></tr>
+      <tr><td><code>START_PROFILE</code></td><td><code is:raw>{ name }</code></td><td>Start every service in the profile in dep order.</td></tr>
+      <tr><td><code>STOP_ALL</code></td><td><code is:raw>{}</code></td><td>Stop every running service in reverse dep order.</td></tr>
+      <tr><td><code>SUBSCRIBE_LOGS</code></td><td><code is:raw>{ id }</code></td><td>Begin receiving <code>LOG_OUTPUT</code> for this service.</td></tr>
+      <tr><td><code>UNSUBSCRIBE_LOGS</code></td><td><code is:raw>{ id }</code></td><td>Stop receiving log output for this service.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="examples">Examples</h2>
+
+  <h3>List services with curl</h3>
+  <pre is:raw><code is:raw>$ curl -s http://localhost:4200/api/services | jq '.[] | { id, state, healthy: .health.healthy }'</code></pre>
+
+  <h3>Start a profile from a script</h3>
+  <pre is:raw><code>curl -X POST http://localhost:4200/api/profiles/full-lab/start</code></pre>
+
+  <h3>Stream logs with wscat</h3>
+  <pre is:raw><code>$ wscat -c ws://localhost:4200/ws
+> {"type":"SUBSCRIBE_LOGS","id":"apparatus"}
+&lt; {"type":"LOG_BATCH","id":"apparatus","lines":[...]}
+&lt; {"type":"LOG_OUTPUT","id":"apparatus","stream":"stdout","line":"..."}</code></pre>
+
+  <h2 id="security">Security</h2>
+  <p>
+    Bridge applies a basic origin check on every HTTP request: requests whose <code>Origin</code> header is non-local are blocked with 403. This is a hardening measure for the personal-tool framing — Bridge is intended to bind to <code>127.0.0.1</code> behind a reverse proxy, never directly to the internet.
+  </p>
+  <p>
+    There is currently <strong>no built-in authentication</strong> in Bridge itself. Authentication is the reverse proxy's job — see the <a href="/deployment">deployment guide</a> for the recommended Caddy + basic auth shape.
+  </p>
+</DocsLayout>

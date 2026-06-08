@@ -1,0 +1,184 @@
+---
+import DocsLayout from '../layouts/DocsLayout.astro';
+import Mermaid from '../components/Mermaid.astro';
+
+const overview = `flowchart TB
+  subgraph browser["Operator's browser"]
+    ui["React dashboard<br/>(Zustand store)"]
+  end
+  subgraph host["Bridge host"]
+    subgraph bridge["bridge process (Node 22)"]
+      express["Express HTTP server<br/>:4200"]
+      ws["WebSocket server<br/>/ws"]
+      pm["ProcessManager"]
+      hm["HealthMonitor"]
+      rm["ResourceMonitor"]
+      orch["Orchestrator<br/>(topo-sort + lifecycle)"]
+      cfg["Config loader<br/>+ file watcher"]
+    end
+    subgraph children["Managed child processes"]
+      svc1["apparatus"]
+      svc2["chimera-api"]
+      svc3["chimera-web"]
+      svc4["crucible"]
+    end
+    yaml[("config.yaml")]
+  end
+
+  ui -->|REST| express
+  ui <-->|WS| ws
+  express --> orch
+  ws --> orch
+  orch --> pm
+  pm -->|spawn / SIGTERM / SIGKILL| svc1
+  pm -->|spawn / SIGTERM / SIGKILL| svc2
+  pm -->|spawn / SIGTERM / SIGKILL| svc3
+  pm -->|spawn / SIGTERM / SIGKILL| svc4
+  hm -->|HTTP poll| svc1
+  hm -->|HTTP poll| svc2
+  hm -->|HTTP poll| svc3
+  hm -->|HTTP poll| svc4
+  rm -->|ps sample| pm
+  yaml -.watch.-> cfg
+  cfg --> orch
+  pm -- stdout/stderr --> ws`;
+
+const packageDiagram = `flowchart LR
+  subgraph workspace["pnpm workspace"]
+    shared["@bridge/shared<br/>—<br/>types · Zod schema · WS protocol"]
+    server["@atlascrew/bridge<br/>—<br/>Express + ws + supervisor<br/>(publishable)"]
+    web["@bridge/web<br/>—<br/>React 19 + Vite + Tailwind"]
+  end
+  shared --> server
+  shared --> web
+  server -.serves built bundle.-> web
+  classDef pkg fill:#131a2a,stroke:#1e90ff,color:#e8eef7;
+  class shared,server,web pkg;`;
+
+const lifecycle = `sequenceDiagram
+  autonumber
+  participant U as Operator
+  participant W as Web UI
+  participant B as Bridge server
+  participant P as ProcessManager
+  participant S as Service (child)
+  participant H as HealthMonitor
+
+  U->>W: Click "Start full-lab"
+  W->>B: WS START_PROFILE { name: "full-lab" }
+  B->>B: topological sort by dependencies
+  loop For each service in order
+    B->>P: spawn(service)
+    P->>S: child_process.spawn(cmd, args, env, cwd)
+    S-->>P: stdout: "server listening"
+    P->>P: readyPattern matched → state=running
+    P-->>W: SERVICE_UPDATE { state: running }
+    B->>H: register service
+    H->>S: HTTP GET /healthz
+    S-->>H: 200 OK (12ms)
+    H-->>W: HEALTH_UPDATE { healthy: true, latency: 12 }
+  end
+  W-->>U: All services live ✓`;
+
+const stopFlow = `flowchart LR
+  stop["STOP_SERVICE"] --> sigterm["SIGTERM"]
+  sigterm --> wait{exited within<br/>shutdownGracePeriodMs?}
+  wait -- yes --> done(["state=stopped"])
+  wait -- no --> sigkill["SIGKILL"]
+  sigkill --> kdone(["state=stopped<br/>(forced)"])
+  classDef warn fill:#1a2235,stroke:#f97316,color:#f97316;
+  class sigkill warn;`;
+
+const toc = [
+  { id: 'overview', label: 'System overview' },
+  { id: 'packages', label: 'Package layout' },
+  { id: 'lifecycle', label: 'Process lifecycle' },
+  { id: 'shutdown', label: 'Graceful shutdown' },
+  { id: 'health', label: 'Health monitoring' },
+  { id: 'logs', label: 'Log streaming' },
+  { id: 'why-single-host', label: 'Why single-host' },
+];
+---
+
+<DocsLayout
+  title="Architecture"
+  pageKicker="Getting started"
+  pageTitle="Architecture"
+  description="How Bridge is structured: the supervisor process, the dashboard, and the managed child processes. Bridge is intentionally single-host and intentionally simple."
+  toc={toc}
+>
+  <h2 id="overview">System overview</h2>
+  <p>
+    Bridge is a single Node.js process that supervises a set of native child processes on the same host. Operators interact with it through a dashboard backed by a WebSocket connection.
+  </p>
+
+  <Mermaid code={overview} label="Bridge system overview diagram" />
+
+  <p>
+    Three subsystems are worth calling out:
+  </p>
+  <ul>
+    <li><strong>ProcessManager</strong> — owns the child-process lifecycle. Spawns, kills, captures stdout/stderr, tracks state.</li>
+    <li><strong>HealthMonitor</strong> — polls each running service's <code>healthCheck.url</code> on its <code>intervalMs</code>, tracks success / failure / latency.</li>
+    <li><strong>Orchestrator</strong> — runs topological sort over the dependency graph for <code>START_PROFILE</code> and the reverse for <code>STOP_ALL</code>.</li>
+  </ul>
+
+  <h2 id="packages">Package layout</h2>
+  <p>The repo is a pnpm workspace with three packages — one publishable (<code>@atlascrew/bridge</code>) and two private workspace packages.</p>
+
+  <Mermaid code={packageDiagram} label="Bridge package layout" />
+
+  <ul>
+    <li><strong><code>@bridge/shared</code></strong> — TypeScript types, Zod schema for <code>config.yaml</code>, and the WebSocket message protocol. Pinned with <code>workspace:*</code> by both server and web.</li>
+    <li><strong><code>@atlascrew/bridge</code></strong> — the Express + WebSocket server, including the supervisor classes, route handlers, and a <code>bin.ts</code> entry that boots the dashboard. This is the npm-published artifact.</li>
+    <li><strong><code>@bridge/web</code></strong> — the React 19 dashboard. Built ahead of time and served as static files by the server in production.</li>
+  </ul>
+
+  <h2 id="lifecycle">Process lifecycle</h2>
+  <p>
+    When you start a profile, Bridge topologically sorts the services by their <code>dependencies</code> arrays and brings them up one at a time. Each service is considered "ready" when one of two conditions is met:
+  </p>
+  <ol>
+    <li>Its <code>readyPattern</code> regex matches a line on stdout, <em>or</em></li>
+    <li>Its <code>healthCheck.url</code> returns 2xx (if no <code>readyPattern</code> is configured)</li>
+  </ol>
+  <p><code>readyPattern</code> is the faster path because it doesn't have to wait for the first health-poll interval and survives slow first-request boot.</p>
+
+  <Mermaid code={lifecycle} label="Service start lifecycle sequence" />
+
+  <h2 id="shutdown">Graceful shutdown</h2>
+  <p>
+    Stopping a service sends <code>SIGTERM</code> first and waits up to <code>lab.shutdownGracePeriodMs</code> (default <code>10000</code>) for the process to exit. If it doesn't, Bridge follows up with <code>SIGKILL</code>.
+  </p>
+
+  <Mermaid code={stopFlow} label="Stop sequence flowchart" />
+
+  <p>
+    The dashboard exposes both <code>STOP_SERVICE</code> (graceful) and <code>FORCE_STOP_SERVICE</code> (immediate <code>SIGKILL</code>) — the latter is for services that ignore signals. <code>STOP_ALL</code> reverses the dependency order so dependents shut down before their providers.
+  </p>
+
+  <h2 id="health">Health monitoring</h2>
+  <p>
+    Each running service has an HTTP poll loop on <code>healthCheck.intervalMs</code> with a <code>healthCheck.timeoutMs</code> deadline. The result lands on the WebSocket as a <code>HEALTH_UPDATE</code> message containing the boolean status, the latency in milliseconds, and a timestamp. Failed polls don't restart services automatically — they surface the failure on the dashboard so the operator can decide.
+  </p>
+
+  <h2 id="logs">Log streaming</h2>
+  <p>
+    Stdout and stderr from each child process are captured line-by-line, buffered in a ring (the most recent 5,000 lines per service by default), and pushed to subscribed WebSocket clients. The dashboard's log panel subscribes when opened and unsubscribes when closed, so log traffic doesn't pile up for inactive viewers.
+  </p>
+  <p>
+    The most recent stderr lines are also surfaced inline on the service card when the service crashes, so debugging the common case ("which service died and why") doesn't require scrolling to the log panel.
+  </p>
+
+  <h2 id="why-single-host">Why single-host</h2>
+  <p>
+    Bridge is deliberately not a Kubernetes operator or a multi-host orchestrator. It supervises processes on one machine. This buys two things:
+  </p>
+  <ol>
+    <li><strong>Operational simplicity.</strong> No cluster, no etcd, no service mesh — just <code>systemd</code> + Bridge + Caddy. The deployment is one VM.</li>
+    <li><strong>Service-author honesty.</strong> Many of the security tools Bridge manages (Apparatus, Chimera, Crucible) want to be one process, on one host, with predictable ports. Wrapping each in a container and a Service object adds layers without adding value.</li>
+  </ol>
+  <p>
+    For multi-tenant scenarios — like running 30 isolated labs for a training cohort — the recommended pattern is to bake Bridge + the managed services into a single Docker image and use Kubernetes to schedule N copies of <em>that</em>. Use Kubernetes to orchestrate containers; use Bridge to orchestrate processes <em>inside</em> each container. See <a href="/deployment">Deployment</a> for the full pattern.
+  </p>
+</DocsLayout>

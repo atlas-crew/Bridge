@@ -1,0 +1,191 @@
+---
+import DocsLayout from '../layouts/DocsLayout.astro';
+
+const toc = [
+  { id: 'methods', label: 'Choose a method' },
+  { id: 'npm', label: 'npm (recommended)' },
+  { id: 'docker', label: 'Docker' },
+  { id: 'docker-compose', label: 'Docker Compose' },
+  { id: 'source', label: 'From source' },
+  { id: 'after-install', label: 'After installation' },
+  { id: 'requirements', label: 'System requirements' },
+];
+---
+
+<DocsLayout
+  title="Installation"
+  pageKicker="Getting started"
+  pageTitle="Installation"
+  description="Bridge ships as an npm package, a Docker image, and a pnpm workspace for source builds. npm is the recommended path for production; Docker is the fastest way to try it; source is for hacking on Bridge itself."
+  toc={toc}
+>
+  <h2 id="methods">Choose a method</h2>
+  <p>
+    Bridge is a single-host process supervisor — it doesn't ship as a Helm chart or a serverless app. Pick the install path that matches how you'll run it:
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Method</th><th>Best for</th><th>What it gives you</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><a href="#npm">npm</a></td>
+        <td><strong>Production single-host</strong>, lab appliances, systemd integration</td>
+        <td>A globally installed <code>bridge</code> binary plus the bundled web dashboard</td>
+      </tr>
+      <tr>
+        <td><a href="#docker">Docker</a></td>
+        <td>One-shot demos, sandboxed evaluation, ephemeral environments</td>
+        <td>A self-contained image you can boot in seconds without touching the host</td>
+      </tr>
+      <tr>
+        <td><a href="#docker-compose">Docker Compose</a></td>
+        <td>Adding a reverse proxy / TLS / basic auth in front of Bridge</td>
+        <td>Bridge + Caddy (or nginx) wired together via one <code>compose.yaml</code></td>
+      </tr>
+      <tr>
+        <td><a href="#source">From source</a></td>
+        <td>Contributing to Bridge or pinning a custom build</td>
+        <td>The full pnpm workspace with hot-reload dev mode and tmux-managed services</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <blockquote>
+    <strong>If you're not sure</strong>: install via npm. It mirrors how Bridge is intended to run in production (one process per machine, native child processes for the managed services), and the binary works the same on macOS, Linux, and inside containers.
+  </blockquote>
+
+  <h2 id="npm">npm</h2>
+  <p>The published package is <code>@atlascrew/bridge</code>. It includes the prebuilt server and the static web dashboard.</p>
+
+  <pre is:raw><code>npm install -g @atlascrew/bridge
+bridge start</code></pre>
+
+  <p>
+    On first start Bridge looks for a <code>config.yaml</code> in the current working directory; if none is found it falls back to the bundled default config. Override the location with the <code>CONFIG_PATH</code> environment variable.
+  </p>
+
+  <pre is:raw><code>CONFIG_PATH=/etc/bridge/config.yaml bridge start</code></pre>
+
+  <p>The dashboard binds to <code>http://localhost:4200</code> by default. See <a href="/cli">CLI reference</a> for all flags and environment variables.</p>
+
+  <h2 id="docker">Docker</h2>
+  <p>
+    The Docker image is published as <code>nickcrew/bridge</code>. It ships with a default <code>config.yaml</code> baked in so you can boot it without any setup, but for anything beyond a demo you'll want to mount your own config.
+  </p>
+
+  <pre is:raw><code>docker run --rm -p 4200:4200 \
+  -v $(pwd)/config.yaml:/app/config.yaml \
+  nickcrew/bridge:latest</code></pre>
+
+  <p>
+    Because Bridge spawns the managed services as child processes <em>inside its own container</em>, the binaries those services need (Node, Python, etc.) must also be present in the container. The default image bundles Node 22 and pnpm so it can manage Node-based services out of the box; for Python services like Chimera, build a derived image that adds the runtime you need.
+  </p>
+
+  <h4>Tags</h4>
+  <ul>
+    <li><code>latest</code> — most recent published release</li>
+    <li><code>0.x</code> — pinned minor version (recommended for production)</li>
+    <li><code>main</code> — bleeding-edge built from <code>main</code></li>
+  </ul>
+
+  <h2 id="docker-compose">Docker Compose</h2>
+  <p>
+    Bridge by itself doesn't need Compose, but pairing it with Caddy (or nginx) for TLS and basic auth in front of the dashboard is a common shape:
+  </p>
+
+  <pre is:raw><code>services:
+  bridge:
+    image: nickcrew/bridge:latest
+    expose:
+      - "4200"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    depends_on: [bridge]
+
+volumes:
+  caddy_data:
+  caddy_config:</code></pre>
+
+  <p>
+    A matching <code>Caddyfile</code> with TLS, basic auth, and the WebSocket upgrade is in <code>examples/Caddyfile</code> in the repo. See the <a href="/deployment">Deployment guide</a> for the full appliance pattern.
+  </p>
+
+  <h2 id="source">From source</h2>
+  <p>The repo is a pnpm workspace with three packages:</p>
+
+  <ul>
+    <li><code>@bridge/shared</code> — Zod schema, types, WS protocol</li>
+    <li><code>@atlascrew/bridge</code> — Express + WebSocket server (the publishable npm package)</li>
+    <li><code>@bridge/web</code> — React 19 dashboard built with Vite + Tailwind</li>
+  </ul>
+
+  <pre is:raw><code># Clone and install
+git clone https://github.com/atlas-crew/Bridge.git
+cd Bridge
+pnpm install
+
+# Foreground dev: server :4200 + Vite HMR :4201
+just dev
+
+# Or background dev (tmux-managed, agent-friendly)
+just svc-up
+just svc-status
+just svc-read-server 50</code></pre>
+
+  <p>The justfile exposes the full <code>svc-*</code> family for managing long-running dev processes without holding a foreground shell. Run <code>just --list</code> for the catalog.</p>
+
+  <pre is:raw><code># Production build + run
+just build
+just start</code></pre>
+
+  <p>If you don't have <a href="https://github.com/casey/just">just</a> installed, run <code>just install-just</code> or use the equivalent <code>pnpm</code> scripts in <code>package.json</code>.</p>
+
+  <h2 id="after-install">After installation</h2>
+
+  <p>Three things to do once Bridge is running:</p>
+
+  <ol>
+    <li>
+      <strong>Drop a <code>config.yaml</code></strong> in the working directory (or wherever <code>CONFIG_PATH</code> points). Start from <a href="/configuration">the configuration reference</a> or copy <code>examples/production.yaml</code> from the repo.
+    </li>
+    <li>
+      <strong>Open the dashboard</strong> at <code>http://localhost:4200</code>. The header shows your lab name and a connection indicator. Pick a profile from the launcher to bring services up in dependency order.
+    </li>
+    <li>
+      <strong>Verify the API</strong> by hitting <code>http://localhost:4200/health</code> — it should return <code is:raw>{ "status": "ok" }</code> with your lab name.
+    </li>
+  </ol>
+
+  <h2 id="requirements">System requirements</h2>
+
+  <table>
+    <thead>
+      <tr><th>Requirement</th><th>Minimum</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Node.js</td><td>22.0+</td><td>Required for npm install and source builds. The Docker image bundles Node 22.</td></tr>
+      <tr><td>OS</td><td>Linux, macOS, Windows</td><td>Production-tested on Linux (Debian/Ubuntu). macOS used for development.</td></tr>
+      <tr><td>RAM</td><td>~150 MB for Bridge itself</td><td>Plus whatever the managed services need.</td></tr>
+      <tr><td>Disk</td><td>~80 MB</td><td>Plus per-service binaries and any data they persist.</td></tr>
+      <tr><td>Network</td><td>Loopback only by default</td><td>Bridge binds to <code>127.0.0.1:4200</code>; expose via reverse proxy.</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    Next: <a href="/configuration">read the full config reference</a> or <a href="/architecture">see how the pieces fit together</a>.
+  </p>
+</DocsLayout>

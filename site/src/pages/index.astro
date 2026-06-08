@@ -1,0 +1,213 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Mermaid from '../components/Mermaid.astro';
+import ServiceCard from '../components/ServiceCard.astro';
+
+const heroDiagram = `flowchart LR
+  user(["Operator"]) -->|HTTPS| dash["Dashboard<br/>:4200"]
+  dash <-->|WebSocket| srv["Bridge Server<br/>(Express + ws)"]
+  srv -->|spawn / signal| p1["apparatus<br/>(child)"]
+  srv -->|spawn / signal| p2["chimera-api<br/>(child)"]
+  srv -->|spawn / signal| p3["crucible<br/>(child)"]
+  srv -->|spawn / signal| p4["signal-horizon<br/>(child)"]
+  srv -->|HTTP poll| p1
+  srv -->|HTTP poll| p2
+  srv -->|HTTP poll| p3
+  srv -->|HTTP poll| p4
+  config[("config.yaml")] -.watch.-> srv
+  classDef faded fill:#0c1220,stroke:#3a4870,color:#8a9bb8;
+  class user,config faded;`;
+
+const services = [
+  { icon: '/brand/icons/apparatus-icon.svg', name: 'Apparatus', role: 'Multi-protocol security lab — HTTP/HTTPS, gRPC, TCP/UDP echo, redis-mock.', ports: '8090, 8443, 50051', health: '/healthz' },
+  { icon: '/brand/icons/chimera-icon.svg', name: 'Chimera', role: 'Vulnerable application backend (Flask) + frontend (React) for offensive testing.', ports: '8880, 5175', health: '/health' },
+  { icon: '/brand/icons/crucible-icon.svg', name: 'Crucible', role: 'Attack simulation engine that drives traffic against the lab targets.', ports: '3000, 3001', health: '/health' },
+  { icon: '/brand/icons/synapse-icon.svg', name: 'Signal Horizon', role: 'Edge-protection signal ingest and dashboard.', ports: '3100, 5180', health: '/health' },
+  { icon: '/brand/icons/synapse-icon.svg', name: 'Synapse Pingora', role: 'Pingora-based WAF gateway sitting in front of Chimera.', ports: '6191', health: '/health' },
+];
+---
+
+<BaseLayout
+  title="Bridge"
+  description="Bridge is a single-host service orchestrator for the Atlas Crew Security stack. Supervise Apparatus, Chimera, Crucible, Signal Horizon, and Synapse as native child processes from one real-time web dashboard."
+>
+  <!-- Hero -->
+  <section class="relative overflow-hidden border-b border-[var(--color-border)]">
+    <div class="absolute inset-0 -z-10 opacity-40">
+      <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(30,144,255,0.18),transparent_60%)]"></div>
+      <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(249,115,22,0.10),transparent_55%)]"></div>
+    </div>
+
+    <div class="mx-auto max-w-[1280px] px-6 py-16 lg:py-24 grid lg:grid-cols-[1.1fr_0.9fr] gap-12 items-center">
+      <div>
+        <p class="type-label text-[0.72rem] text-[var(--color-brand-blue)] mb-4">Atlas Crew Security · Service Orchestrator</p>
+        <h1 class="type-display text-[2.75rem] sm:text-[3.5rem] leading-[1.05] text-[var(--color-text)] mb-6">
+          One dashboard.<br/>
+          <span class="text-[var(--color-brand-blue)]">Native processes.</span><br/>
+          No cluster.
+        </h1>
+        <p class="type-body text-[1.05rem] text-[var(--color-text-dim)] max-w-xl leading-relaxed mb-8">
+          Bridge supervises long-running security stack processes on one host, polls their health, streams their logs, and gives operators a single web dashboard to control the lifecycle of the whole stack — without containers or Kubernetes.
+        </p>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <a
+            href="/install"
+            class="type-nav inline-flex items-center gap-2 rounded-md bg-[var(--color-brand-blue)] px-5 py-2.5 text-[0.85rem] text-white transition-opacity hover:opacity-90"
+          >
+            Install Bridge →
+          </a>
+          <a
+            href="/architecture"
+            class="type-nav inline-flex items-center gap-2 rounded-md border border-[var(--color-border)] px-5 py-2.5 text-[0.85rem] text-[var(--color-text)] transition-colors hover:border-[var(--color-brand-blue)] hover:text-[var(--color-brand-blue)]"
+          >
+            How it works
+          </a>
+          <a
+            href="https://github.com/atlas-crew/Bridge"
+            class="type-nav inline-flex items-center gap-2 rounded-md px-3 py-2.5 text-[0.85rem] text-[var(--color-text-dim)] transition-colors hover:text-[var(--color-brand-blue)]"
+          >
+            GitHub ↗
+          </a>
+        </div>
+      </div>
+
+      <div class="relative">
+        <div class="rounded-xl border border-[var(--color-border)] bg-[color:var(--color-surface)] p-2 shadow-2xl shadow-black/40">
+          <img
+            src="/brand/banners/bridge-social.png"
+            alt="Bridge — Service Orchestrator banner"
+            width="1200"
+            height="630"
+            class="w-full rounded-lg"
+            loading="eager"
+          />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Three-up features -->
+  <section class="border-b border-[var(--color-border)]">
+    <div class="mx-auto max-w-[1280px] px-6 py-14">
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="rounded-lg border border-[var(--color-border)] bg-[color:var(--color-surface)] p-6">
+          <div class="h-9 w-9 rounded-md bg-[color:var(--color-brand-blue)]/10 border border-[var(--color-brand-blue)]/30 flex items-center justify-center mb-3">
+            <svg viewBox="0 0 24 24" class="h-5 w-5 text-[var(--color-brand-blue)]" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
+          </div>
+          <h3 class="type-heading text-[1.1rem] text-[var(--color-text)] mb-2">Process supervisor</h3>
+          <p class="type-body text-[0.9rem] text-[var(--color-text-dim)] leading-relaxed">
+            Topological dependency-ordered start, reverse-order shutdown, SIGTERM → SIGKILL escalation, restart policies, and health-based recovery.
+          </p>
+        </div>
+
+        <div class="rounded-lg border border-[var(--color-border)] bg-[color:var(--color-surface)] p-6">
+          <div class="h-9 w-9 rounded-md bg-[color:var(--color-brand-blue)]/10 border border-[var(--color-brand-blue)]/30 flex items-center justify-center mb-3">
+            <svg viewBox="0 0 24 24" class="h-5 w-5 text-[var(--color-brand-blue)]" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+          </div>
+          <h3 class="type-heading text-[1.1rem] text-[var(--color-text)] mb-2">Real-time dashboard</h3>
+          <p class="type-body text-[0.9rem] text-[var(--color-text-dim)] leading-relaxed">
+            WebSocket-driven service cards with live CPU, memory, health latency, and a streaming log panel with full-text search.
+          </p>
+        </div>
+
+        <div class="rounded-lg border border-[var(--color-border)] bg-[color:var(--color-surface)] p-6">
+          <div class="h-9 w-9 rounded-md bg-[color:var(--color-brand-orange)]/10 border border-[var(--color-brand-orange)]/30 flex items-center justify-center mb-3">
+            <svg viewBox="0 0 24 24" class="h-5 w-5 text-[var(--color-brand-orange)]" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+          </div>
+          <h3 class="type-heading text-[1.1rem] text-[var(--color-text)] mb-2">YAML-first config</h3>
+          <p class="type-body text-[0.9rem] text-[var(--color-text-dim)] leading-relaxed">
+            One <code>config.yaml</code> defines services, dependencies, profiles, and health checks. Hot-reload on save; in-browser editor included.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section class="border-b border-[var(--color-border)]">
+    <div class="mx-auto max-w-[1280px] px-6 py-14">
+      <div class="max-w-2xl mb-6">
+        <p class="type-label text-[0.72rem] text-[var(--color-brand-blue)] mb-2">Architecture</p>
+        <h2 class="type-heading text-[1.75rem] text-[var(--color-text)] mb-3">Browser → Bridge → child processes</h2>
+        <p class="type-body text-[0.95rem] text-[var(--color-text-dim)] leading-relaxed">
+          Bridge is a Node.js Express server with a WebSocket upgrade. It spawns each managed service as a native child process, polls their HTTP health endpoints, and streams stdout/stderr back to the dashboard in real time.
+        </p>
+      </div>
+      <Mermaid code={heroDiagram} label="Bridge architecture overview" />
+    </div>
+  </section>
+
+  <!-- Services managed -->
+  <section class="border-b border-[var(--color-border)]">
+    <div class="mx-auto max-w-[1280px] px-6 py-14">
+      <div class="max-w-2xl mb-6">
+        <p class="type-label text-[0.72rem] text-[var(--color-brand-blue)] mb-2">What it manages</p>
+        <h2 class="type-heading text-[1.75rem] text-[var(--color-text)] mb-3">The Atlas Crew Security stack</h2>
+        <p class="type-body text-[0.95rem] text-[var(--color-text-dim)] leading-relaxed">
+          The default <code>config.yaml</code> wires up the full lab. Override or trim it for your own deployment.
+        </p>
+      </div>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {services.map((s) => (
+          <ServiceCard icon={s.icon} name={s.name} role={s.role} ports={s.ports} health={s.health} href="/services" />
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick start -->
+  <section class="border-b border-[var(--color-border)]">
+    <div class="mx-auto max-w-[1280px] px-6 py-14">
+      <div class="max-w-2xl mb-6">
+        <p class="type-label text-[0.72rem] text-[var(--color-brand-blue)] mb-2">Quick start</p>
+        <h2 class="type-heading text-[1.75rem] text-[var(--color-text)] mb-3">Pick an install, run one command</h2>
+        <p class="type-body text-[0.95rem] text-[var(--color-text-dim)] leading-relaxed">
+          npm is recommended for production single-host deployments. Docker is great for a one-shot demo or trying it out.
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="rounded-lg border border-[var(--color-border)] bg-[color:var(--color-surface)] p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="type-label text-[0.75rem] text-[var(--color-text-dim)]">npm — recommended</h3>
+            <span class="type-tag text-[0.65rem] rounded-full border border-[var(--color-brand-blue)]/40 bg-[color:var(--color-brand-blue)]/10 px-2 py-0.5 text-[var(--color-brand-blue)]">Production</span>
+          </div>
+          <pre is:raw class="!mt-0"><code>npm install -g @atlascrew/bridge
+bridge start</code></pre>
+        </div>
+        <div class="rounded-lg border border-[var(--color-border)] bg-[color:var(--color-surface)] p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="type-label text-[0.75rem] text-[var(--color-text-dim)]">Docker</h3>
+            <span class="type-tag text-[0.65rem] rounded-full border border-[var(--color-brand-orange)]/40 bg-[color:var(--color-brand-orange)]/10 px-2 py-0.5 text-[var(--color-brand-orange)]">Demo</span>
+          </div>
+          <pre is:raw class="!mt-0"><code>docker run -p 4200:4200 \
+  -v $(pwd)/config.yaml:/app/config.yaml \
+  nickcrew/bridge:latest</code></pre>
+        </div>
+      </div>
+
+      <div class="mt-6">
+        <a href="/install" class="type-nav text-[0.85rem] text-[var(--color-brand-blue)] hover:underline">All install methods →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Big CTA -->
+  <section>
+    <div class="mx-auto max-w-[1280px] px-6 py-16">
+      <div class="rounded-xl border border-[var(--color-border)] bg-gradient-to-br from-[color:var(--color-surface)] to-[color:var(--color-bg)] p-10 text-center">
+        <h2 class="type-display text-[2rem] text-[var(--color-text)] mb-3">Ready to run a lab?</h2>
+        <p class="type-body text-[0.95rem] text-[var(--color-text-dim)] mb-6 max-w-xl mx-auto">
+          Read the configuration reference, tour the dashboard, or jump straight to deployment.
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-3">
+          <a href="/configuration" class="type-nav rounded-md bg-[var(--color-brand-blue)] px-5 py-2.5 text-[0.85rem] text-white hover:opacity-90">Configuration reference</a>
+          <a href="/dashboard" class="type-nav rounded-md border border-[var(--color-border)] px-5 py-2.5 text-[0.85rem] text-[var(--color-text)] hover:border-[var(--color-brand-blue)] hover:text-[var(--color-brand-blue)]">Tour the dashboard</a>
+          <a href="/deployment" class="type-nav rounded-md border border-[var(--color-border)] px-5 py-2.5 text-[0.85rem] text-[var(--color-text)] hover:border-[var(--color-brand-blue)] hover:text-[var(--color-brand-blue)]">Deploy to production</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

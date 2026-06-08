@@ -1,0 +1,127 @@
+---
+import DocsLayout from '../layouts/DocsLayout.astro';
+
+const toc = [
+  { id: 'binary', label: 'The bridge binary' },
+  { id: 'commands', label: 'Commands' },
+  { id: 'env', label: 'Environment variables' },
+  { id: 'examples', label: 'Examples' },
+  { id: 'justfile', label: 'Justfile (source dev)' },
+  { id: 'signals', label: 'Signals' },
+];
+---
+
+<DocsLayout
+  title="CLI reference"
+  pageKicker="Reference"
+  pageTitle="CLI reference"
+  description="Bridge ships a single command — bridge — that boots the orchestrator. This page covers every subcommand, environment variable, and signal it understands, plus the justfile workflow used during source development."
+  toc={toc}
+>
+  <h2 id="binary">The <code>bridge</code> binary</h2>
+  <p>
+    Installing <code>@atlascrew/bridge</code> globally puts a <code>bridge</code> command on your <code>PATH</code>. Running it with no arguments is equivalent to <code>bridge start</code>.
+  </p>
+
+  <pre is:raw><code>$ bridge
+[Server] Mode: production
+[Server] Web Dist: /usr/lib/node_modules/@atlascrew/bridge/web-dist (exists)
+[Server] Listening on http://0.0.0.0:4200
+[Lab] "Production Lab" loaded with 4 services and 3 profiles</code></pre>
+
+  <h2 id="commands">Commands</h2>
+
+  <h3><code>bridge start</code> · <code>bridge serve</code></h3>
+  <p>
+    Boots the orchestrator. <code>start</code> and <code>serve</code> are aliases. This is the default command and the only command you typically need.
+  </p>
+  <pre is:raw><code>bridge start
+bridge serve</code></pre>
+
+  <p>The server stays in the foreground until it receives <code>SIGTERM</code> or <code>SIGINT</code>, at which point it gracefully stops every running managed service before exiting.</p>
+
+  <h3><code>bridge help</code> · <code>bridge --help</code> · <code>bridge -h</code></h3>
+  <p>Prints a short usage summary.</p>
+
+  <pre is:raw><code>$ bridge help
+Usage: bridge [start|serve|help]
+
+start, serve  Start the Bridge orchestration server (default)
+help          Show this help message
+
+Environment:
+  PORT          Dashboard port (default: 4200)
+  CONFIG_PATH   Path to config.yaml</code></pre>
+
+  <h2 id="env">Environment variables</h2>
+  <table>
+    <thead>
+      <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>PORT</code></td><td><code>4200</code></td><td>Port the dashboard server binds to.</td></tr>
+      <tr><td><code>HOST</code></td><td><code>0.0.0.0</code></td><td>Bind address. Use <code>127.0.0.1</code> behind a reverse proxy.</td></tr>
+      <tr><td><code>CONFIG_PATH</code></td><td><em>resolved at runtime</em></td><td>Absolute path to <code>config.yaml</code>. Resolution order: this var, then <code>$PWD/config.yaml</code>, then bundled default.</td></tr>
+      <tr><td><code>NODE_ENV</code></td><td><code>production</code></td><td>Set to <code>development</code> to redirect <code>/</code> to the Vite dev server (<code>http://localhost:4201</code>).</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    Anything in <code>services[*].env</code> in the config is layered on top of the spawned process's environment. The config can also reference variables from Bridge's own environment via <code>$VAR</code> substitution — see <a href="/configuration#env-substitution">env substitution</a>.
+  </p>
+
+  <h2 id="examples">Examples</h2>
+
+  <h3>Run on a non-default port</h3>
+  <pre is:raw><code>PORT=8080 bridge start</code></pre>
+
+  <h3>Use a config in /etc</h3>
+  <pre is:raw><code>CONFIG_PATH=/etc/bridge/config.yaml bridge start</code></pre>
+
+  <h3>Bind only to loopback</h3>
+  <pre is:raw><code>HOST=127.0.0.1 bridge start</code></pre>
+
+  <h3>Run inside a Docker container</h3>
+  <pre is:raw><code>docker run --rm -p 4200:4200 \
+  -e CONFIG_PATH=/app/config.yaml \
+  -v $(pwd)/config.yaml:/app/config.yaml \
+  nickcrew/bridge:latest</code></pre>
+
+  <h2 id="justfile">Justfile (source dev)</h2>
+  <p>
+    When running from the source repo, the included <code>justfile</code> exposes the canonical dev workflow. Run <code>just --list</code> for the full catalog.
+  </p>
+
+  <h3>Foreground dev</h3>
+  <pre is:raw><code>just dev          # server :4200 + Vite HMR :4201, both in your shell</code></pre>
+
+  <h3>Background dev (tmux-managed)</h3>
+  <pre is:raw><code>just svc-up               # start server + web in tmux windows
+just svc-status           # show running dev services
+just svc-read-server 50   # tail last 50 lines from server logs
+just svc-read-web 50      # tail last 50 lines from web logs
+just svc-restart-server   # restart the server window
+just svc-down             # stop everything</code></pre>
+
+  <p>The <code>svc-*</code> family is designed to be agent-friendly — long-running processes run in dedicated tmux windows so output isn't lost when a foreground shell disconnects.</p>
+
+  <h3>Build &amp; release</h3>
+  <pre is:raw><code>just build        # build all packages
+just start        # production-mode run from build output
+just type-check   # tsc --noEmit across the workspace</code></pre>
+
+  <p>If <code>just</code> isn't installed, run <code>just install-just</code> or use the equivalent <code>pnpm</code> scripts in <code>package.json</code>.</p>
+
+  <h2 id="signals">Signals</h2>
+  <table>
+    <thead>
+      <tr><th>Signal</th><th>Behavior</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>SIGTERM</code></td><td>Graceful shutdown — stops all managed services in reverse dependency order, then exits.</td></tr>
+      <tr><td><code>SIGINT</code></td><td>Same as SIGTERM (catches Ctrl-C in the foreground).</td></tr>
+      <tr><td><code>SIGKILL</code></td><td>Bridge exits immediately. Managed children may be left running until reaped by the OS — avoid unless necessary.</td></tr>
+    </tbody>
+  </table>
+  <p>Bridge's graceful shutdown sends <code>SIGTERM</code> to each managed service and waits up to <code>lab.shutdownGracePeriodMs</code> for it to exit before escalating to <code>SIGKILL</code>.</p>
+</DocsLayout>

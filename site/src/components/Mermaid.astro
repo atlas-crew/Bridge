@@ -1,0 +1,79 @@
+---
+interface Props {
+  /** Mermaid diagram source. */
+  code: string;
+  /** Optional aria-label for accessibility. */
+  label?: string;
+}
+const { code, label = 'Architecture diagram' } = Astro.props;
+---
+
+<figure class="mermaid-container" role="img" aria-label={label}>
+  <pre class="mermaid">{code}</pre>
+</figure>
+
+<script>
+  import mermaid from 'mermaid';
+
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    securityLevel: 'loose',
+    fontFamily: '"Recursive", ui-sans-serif, system-ui, sans-serif',
+    themeVariables: {
+      // Bridge brand palette
+      background: '#0c1220',
+      primaryColor: '#131a2a',
+      primaryBorderColor: '#1e90ff',
+      primaryTextColor: '#e8eef7',
+      secondaryColor: '#1a2235',
+      secondaryBorderColor: '#3a4870',
+      secondaryTextColor: '#e8eef7',
+      tertiaryColor: '#0a0e1a',
+      tertiaryBorderColor: '#2a3550',
+      tertiaryTextColor: '#8a9bb8',
+      lineColor: '#5a6f8a',
+      textColor: '#e8eef7',
+      mainBkg: '#131a2a',
+      nodeBorder: '#1e90ff',
+      clusterBkg: '#0c1220',
+      clusterBorder: '#2a3550',
+      titleColor: '#e8eef7',
+      edgeLabelBackground: '#0c1220',
+      // Sequence
+      actorBkg: '#131a2a',
+      actorBorder: '#1e90ff',
+      actorTextColor: '#e8eef7',
+      activationBkgColor: '#1a2235',
+      activationBorderColor: '#1e90ff',
+      signalColor: '#8a9bb8',
+      signalTextColor: '#e8eef7',
+      labelBoxBkgColor: '#131a2a',
+      labelBoxBorderColor: '#1e90ff',
+      labelTextColor: '#e8eef7',
+      noteBkgColor: '#1a2235',
+      noteBorderColor: '#f97316',
+      noteTextColor: '#e8eef7',
+      // Flowchart
+      defaultLinkColor: '#5a6f8a',
+      // State
+      fillType0: '#131a2a',
+      fillType1: '#1a2235',
+      fillType2: '#0c1220',
+    },
+    flowchart: {
+      curve: 'basis',
+      padding: 16,
+      htmlLabels: true,
+    },
+    sequence: {
+      actorMargin: 60,
+      messageMargin: 36,
+    },
+  });
+
+  // Render every <pre class="mermaid"> on the page
+  await mermaid.run({
+    querySelector: 'pre.mermaid',
+  });
+</script>

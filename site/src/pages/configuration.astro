@@ -1,0 +1,301 @@
+---
+import DocsLayout from '../layouts/DocsLayout.astro';
+
+const toc = [
+  { id: 'file-location', label: 'File location' },
+  { id: 'top-level', label: 'Top-level shape' },
+  { id: 'lab', label: 'lab' },
+  { id: 'services', label: 'services' },
+  { id: 'service-fields', label: 'Service fields' },
+  { id: 'health-check', label: 'healthCheck' },
+  { id: 'profiles', label: 'profiles' },
+  { id: 'env-substitution', label: 'Env substitution' },
+  { id: 'ready-pattern', label: 'readyPattern semantics' },
+  { id: 'hot-reload', label: 'Hot reload' },
+  { id: 'sample', label: 'Full sample config' },
+];
+---
+
+<DocsLayout
+  title="Configuration"
+  pageKicker="Reference"
+  pageTitle="Configuration"
+  description="Bridge is configured through a single config.yaml file. This is the complete schema — every field, type, default, and behavior, validated by Zod at load time."
+  toc={toc}
+>
+  <h2 id="file-location">File location</h2>
+  <p>
+    Bridge looks for the config in this order:
+  </p>
+  <ol>
+    <li>The <code>CONFIG_PATH</code> environment variable, if set</li>
+    <li><code>config.yaml</code> in the current working directory</li>
+    <li>The bundled default config inside the package (Docker image / npm package)</li>
+  </ol>
+  <p>
+    For production deployments, set <code>CONFIG_PATH=/etc/bridge/config.yaml</code> in the systemd unit and keep the file owned by the <code>bridge</code> system user with mode <code>0640</code>.
+  </p>
+
+  <h2 id="top-level">Top-level shape</h2>
+  <p>The config has three top-level sections, all required:</p>
+  <pre is:raw><code>lab:                  # Lab metadata + global defaults
+  ...
+
+services:             # Map of service id → service definition
+  apparatus: ...
+  chimera-api: ...
+
+profiles:             # Map of profile name → service subset
+  full-lab: ...
+  testing: ...</code></pre>
+
+  <p>The whole file is validated with <a href="https://zod.dev">Zod</a> at load time. Missing or malformed fields fail loudly with a structured error.</p>
+
+  <h2 id="lab">lab</h2>
+  <table>
+    <thead>
+      <tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>name</code></td><td>string</td><td><code>"Lab"</code></td><td>Display name shown in the dashboard header.</td></tr>
+      <tr><td><code>shutdownGracePeriodMs</code></td><td>integer (ms)</td><td><code>10000</code></td><td>How long to wait after SIGTERM before sending SIGKILL.</td></tr>
+    </tbody>
+  </table>
+
+  <pre is:raw><code>lab:
+  name: "Production Lab"
+  shutdownGracePeriodMs: 15000</code></pre>
+
+  <h2 id="services">services</h2>
+  <p>
+    A map of service id → service definition. The id is what you'll see in API URLs (<code>/api/services/:id/start</code>) and what you reference in <code>profiles[*].services</code> and other services' <code>dependencies</code> arrays.
+  </p>
+
+  <pre is:raw><code>services:
+  apparatus:               # ← service id
+    name: "Apparatus"
+    cwd: "/opt/apparatus"
+    command: "node"
+    args: ["dist/server.js"]
+    # ...</code></pre>
+
+  <p>Service ids must be unique. Convention is lowercase-kebab-case.</p>
+
+  <h2 id="service-fields">Service fields</h2>
+  <table>
+    <thead>
+      <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>name</code></td><td>string</td><td>yes</td><td>Display name shown on the service card.</td></tr>
+      <tr><td><code>cwd</code></td><td>string</td><td>yes</td><td>Working directory for the spawned process. Supports env substitution.</td></tr>
+      <tr><td><code>command</code></td><td>string</td><td>yes</td><td>Executable to spawn (e.g. <code>node</code>, <code>pnpm</code>, <code>python</code>).</td></tr>
+      <tr><td><code>args</code></td><td>string[]</td><td>no (default <code>[]</code>)</td><td>Arguments to pass to the command.</td></tr>
+      <tr><td><code>healthCheck</code></td><td>object</td><td>yes</td><td>HTTP health probe configuration. See <a href="#health-check">healthCheck</a>.</td></tr>
+      <tr><td><code>ports</code></td><td>object</td><td>yes</td><td>Map of port-label → port number. Used for display + UI links.</td></tr>
+      <tr><td><code>env</code></td><td>object</td><td>no (default <code is:raw>{}</code>)</td><td>Map of env var → value. Layered on top of process env.</td></tr>
+      <tr><td><code>readyPattern</code></td><td>regex string</td><td>no</td><td>Regex matched against stdout to detect readiness. Faster than waiting for health checks.</td></tr>
+      <tr><td><code>dependencies</code></td><td>string[]</td><td>no (default <code>[]</code>)</td><td>Service ids that must be running before this one starts.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Example service</h3>
+  <pre is:raw><code>services:
+  apparatus:
+    name: "Apparatus"
+    cwd: "$DEV_ROOT/Apparatus"
+    command: "pnpm"
+    args: ["dev:server"]
+    healthCheck:
+      url: "http://127.0.0.1:8090/healthz"
+      intervalMs: 5000
+      timeoutMs: 3000
+    ports:
+      http1: 8090
+      http2: 8443
+      grpc: 50051
+    env:
+      DEMO_MODE: "true"
+      LOG_LEVEL: "info"
+    readyPattern: "server listening"
+    dependencies: []</code></pre>
+
+  <h2 id="health-check">healthCheck</h2>
+  <table>
+    <thead>
+      <tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>url</code></td><td>URL string</td><td>—</td><td>HTTP endpoint to poll. Must be a valid absolute URL.</td></tr>
+      <tr><td><code>intervalMs</code></td><td>integer (ms)</td><td><code>5000</code></td><td>How often to poll while the service is running.</td></tr>
+      <tr><td><code>timeoutMs</code></td><td>integer (ms)</td><td><code>3000</code></td><td>Per-request timeout before the poll counts as a failure.</td></tr>
+    </tbody>
+  </table>
+
+  <p>Any 2xx response is considered healthy. Non-2xx, network errors, and timeouts are all "unhealthy."</p>
+
+  <h2 id="profiles">profiles</h2>
+  <p>A map of profile name → object with a description and a service id list:</p>
+  <pre is:raw><code>profiles:
+  full-lab:
+    description: "Full security testing stack"
+    services: ["apparatus", "chimera-api", "chimera-web", "crucible"]
+
+  testing:
+    description: "Apparatus + Chimera API + Crucible (no frontend, no WAF)"
+    services: ["apparatus", "chimera-api", "crucible"]</code></pre>
+
+  <table>
+    <thead>
+      <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>description</code></td><td>string</td><td>yes</td><td>Shown in the dashboard's profile launcher dropdown.</td></tr>
+      <tr><td><code>services</code></td><td>string[]</td><td>yes</td><td>Service ids to bring up. Their <code>dependencies</code> are honored automatically.</td></tr>
+    </tbody>
+  </table>
+
+  <p>Profile names must be 1–64 characters of letters, digits, hyphens, or underscores (validated server-side on POST <code>/api/profiles</code>).</p>
+
+  <h2 id="env-substitution">Env substitution</h2>
+  <p>
+    Any string value in the config can reference environment variables using <code>$VAR</code> or <code is:raw>${VAR}</code> syntax. The substitution happens once at config load time using the server process's own environment.
+  </p>
+  <pre is:raw><code>services:
+  apparatus:
+    cwd: "$DEV_ROOT/Apparatus"            # → /home/nick/dev/Apparatus
+    env:
+      LOG_DIR: "${HOME}/logs/apparatus"   # → /home/nick/logs/apparatus</code></pre>
+
+  <p>If a referenced variable is undefined, it expands to the empty string. There's no default-value syntax — set the variable in your shell, your <code>.env</code>, or your systemd unit.</p>
+
+  <h2 id="ready-pattern">readyPattern semantics</h2>
+  <p>
+    A service is considered <em>ready</em> when one of two things happens:
+  </p>
+  <ol>
+    <li>A line on stdout matches <code>readyPattern</code> (interpreted as a JavaScript regex), <em>or</em></li>
+    <li>The first health check returns 2xx (only used as a fallback when no <code>readyPattern</code> is configured)</li>
+  </ol>
+  <p>
+    Until then, the service shows as <code>starting</code> on the dashboard and dependents won't begin starting. Bridge waits up to 60 seconds for readiness; after that the service is marked <code>crashed</code> and the operator is notified.
+  </p>
+
+  <p>Common patterns:</p>
+  <pre is:raw><code>readyPattern: "server listening"
+readyPattern: "Listening at|Worker spawned"
+readyPattern: "ready in|Local:"
+readyPattern: "Admin HTTP server listening on"</code></pre>
+
+  <h2 id="hot-reload">Hot reload</h2>
+  <p>
+    Bridge watches the config file. When you save it (either through the in-browser editor or with your text editor), the config is re-validated and the in-memory definition is updated. Specifically:
+  </p>
+  <ul>
+    <li><strong>Running services keep running</strong> with their original config — Bridge never silently restarts a process under you.</li>
+    <li><strong>New service definitions</strong> become available immediately — start them from the dashboard.</li>
+    <li><strong>Edited service definitions</strong> take effect on the next start. The dashboard surfaces a "config changed since start" indicator on the affected card.</li>
+    <li><strong>Removed services</strong> stay running until manually stopped, then disappear from the grid.</li>
+  </ul>
+  <p>
+    A <code>CONFIG_RELOADED</code> message is broadcast on the WebSocket so all connected dashboards refresh in sync.
+  </p>
+
+  <h2 id="sample">Full sample config</h2>
+  <p>Below is a working config for the default Atlas Crew Security stack. Copy this as a starting point.</p>
+
+  <pre is:raw><code>lab:
+  name: "Inferno Lab"
+  shutdownGracePeriodMs: 10000
+
+services:
+  apparatus:
+    name: "Apparatus"
+    cwd: "$DEV_ROOT/Apparatus"
+    command: "pnpm"
+    args: ["dev:server"]
+    healthCheck:
+      url: "http://127.0.0.1:8090/healthz"
+      intervalMs: 5000
+      timeoutMs: 3000
+    ports:
+      http1: 8090
+      http2: 8443
+      grpc: 50051
+      tcp-echo: 9090
+      udp-echo: 9001
+      redis-mock: 6380
+    env:
+      DEMO_MODE: "true"
+      PORT_TCP: "9090"
+      PORT_REDIS: "6380"
+    readyPattern: "server listening"
+    dependencies: []
+
+  chimera-api:
+    name: "Chimera API"
+    cwd: "$DEV_ROOT/Chimera"
+    command: "pnpm"
+    args: ["nx", "run", "chimera-api:start"]
+    healthCheck:
+      url: "http://127.0.0.1:8880/health"
+      intervalMs: 5000
+      timeoutMs: 3000
+    ports:
+      http: 8880
+    env:
+      DEMO_MODE: "full"
+      APPARATUS_ENABLED: "true"
+      APPARATUS_BASE_URL: "http://127.0.0.1:8090"
+    readyPattern: "Listening at|Worker spawned"
+    dependencies: ["apparatus"]
+
+  chimera-web:
+    name: "Chimera Web"
+    cwd: "$DEV_ROOT/Chimera"
+    command: "pnpm"
+    args: ["nx", "run", "vuln-web:start"]
+    healthCheck:
+      url: "http://127.0.0.1:5175"
+      intervalMs: 10000
+      timeoutMs: 3000
+    ports:
+      http: 5175
+    env: {}
+    readyPattern: "ready in|Local:"
+    dependencies: ["chimera-api"]
+
+  crucible:
+    name: "Crucible"
+    cwd: "$DEV_ROOT/Crucible"
+    command: "pnpm"
+    args: ["dev"]
+    healthCheck:
+      url: "http://127.0.0.1:3001/health"
+      intervalMs: 5000
+      timeoutMs: 3000
+    ports:
+      backend: 3001
+      frontend: 3000
+    env:
+      CRUCIBLE_TARGET_URL: "http://127.0.0.1:8880"
+    readyPattern: "Demo Dashboard server running"
+    dependencies: ["chimera-api"]
+
+profiles:
+  full-lab:
+    description: "All managed services"
+    services: ["apparatus", "chimera-api", "chimera-web", "crucible"]
+
+  chimera-stack:
+    description: "Apparatus + Chimera (API + Web)"
+    services: ["apparatus", "chimera-api", "chimera-web"]
+
+  testing:
+    description: "Apparatus + Chimera API + Crucible"
+    services: ["apparatus", "chimera-api", "crucible"]
+
+  apparatus-only:
+    description: "Apparatus standalone"
+    services: ["apparatus"]</code></pre>
+</DocsLayout>

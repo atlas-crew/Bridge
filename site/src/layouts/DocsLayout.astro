@@ -1,0 +1,35 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import Sidebar from '../components/Sidebar.astro';
+
+interface TocItem { id: string; label: string }
+interface Props {
+  title: string;
+  description: string;
+  pageTitle?: string;
+  pageKicker?: string;
+  toc?: TocItem[];
+  image?: string;
+}
+const { title, description, pageTitle, pageKicker, toc = [], image } = Astro.props;
+---
+
+<BaseLayout title={title} description={description} image={image} type="article">
+  <div class="mx-auto flex w-full max-w-[1280px] gap-8 px-6">
+    <Sidebar toc={toc} />
+    <main class="min-w-0 flex-1 py-10 lg:py-14">
+      <article class="prose">
+        {pageKicker && (
+          <p class="type-label mb-2 text-[0.72rem] text-[var(--color-brand-blue)]">{pageKicker}</p>
+        )}
+        {pageTitle && <h1 class="type-display">{pageTitle}</h1>}
+        {description && (
+          <p class="mt-2 type-body text-[1rem] text-[var(--color-text-dim)] leading-relaxed">{description}</p>
+        )}
+        <div class="mt-8">
+          <slot />
+        </div>
+      </article>
+    </main>
+  </div>
+</BaseLayout>

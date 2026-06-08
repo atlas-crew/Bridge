@@ -1,0 +1,46 @@
+---
+interface Props {
+  icon: string;
+  name: string;
+  role: string;
+  ports?: string;
+  health?: string;
+  href?: string;
+}
+const { icon, name, role, ports, health, href } = Astro.props;
+const Tag = href ? 'a' : 'div';
+---
+
+<Tag
+  href={href}
+  class:list={[
+    'block rounded-lg border border-[var(--color-border)] bg-[color:var(--color-surface)] p-4 transition-all',
+    href ? 'hover:border-[var(--color-brand-blue)] hover:bg-[color:var(--color-surface-raised)]' : '',
+  ]}
+>
+  <div class="flex items-start gap-3">
+    <img src={icon} alt="" width="40" height="40" class="shrink-0 rounded" />
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center justify-between gap-2">
+        <h3 class="type-heading text-[1rem] text-[var(--color-text)] truncate">{name}</h3>
+      </div>
+      <p class="mt-1 type-body text-[0.8rem] text-[var(--color-text-dim)] leading-relaxed">{role}</p>
+      {(ports || health) && (
+        <dl class="mt-2.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[0.72rem]">
+          {ports && (
+            <>
+              <dt class="type-label text-[var(--color-text-muted)]">Ports</dt>
+              <dd class="type-data text-[var(--color-text-dim)]">{ports}</dd>
+            </>
+          )}
+          {health && (
+            <>
+              <dt class="type-label text-[var(--color-text-muted)]">Health</dt>
+              <dd class="type-data text-[var(--color-text-dim)]">{health}</dd>
+            </>
+          )}
+        </dl>
+      )}
+    </div>
+  </div>
+</Tag>

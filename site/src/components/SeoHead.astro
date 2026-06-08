@@ -1,0 +1,121 @@
+---
+interface Props {
+  title: string;
+  description: string;
+  /** Path-only OG image; will be resolved to absolute URL. */
+  image?: string;
+  /** Override path for canonical (defaults to current pathname). */
+  canonicalPath?: string;
+  /** Page type. */
+  type?: 'website' | 'article';
+  /** Skip indexing (e.g. 404). */
+  noindex?: boolean;
+}
+
+const {
+  title,
+  description,
+  image = '/brand/banners/bridge-social.png',
+  canonicalPath,
+  type = 'website',
+  noindex = false,
+} = Astro.props;
+
+const SITE_NAME = 'Bridge';
+const SITE_URL = 'https://bridge.atlascrew.dev';
+const fullTitle = title === SITE_NAME ? `${SITE_NAME} — Service Orchestrator` : `${title} — ${SITE_NAME}`;
+const path = canonicalPath ?? Astro.url.pathname;
+const canonical = new URL(path, SITE_URL).toString();
+const ogImage = new URL(image, SITE_URL).toString();
+---
+
+<!-- Primary -->
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="generator" content={Astro.generator} />
+
+<title>{fullTitle}</title>
+<meta name="description" content={description} />
+<link rel="canonical" href={canonical} />
+
+{noindex ? <meta name="robots" content="noindex, nofollow" /> : <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />}
+
+<!-- Theme + favicon -->
+<meta name="theme-color" content="#0c1220" />
+<link rel="icon" type="image/svg+xml" href="/brand/icons/bridge-icon.svg" />
+<link rel="apple-touch-icon" href="/brand/icons/bridge-icon.svg" />
+
+<!-- Open Graph -->
+<meta property="og:type" content={type} />
+<meta property="og:site_name" content={SITE_NAME} />
+<meta property="og:title" content={fullTitle} />
+<meta property="og:description" content={description} />
+<meta property="og:url" content={canonical} />
+<meta property="og:image" content={ogImage} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Bridge — Service Orchestrator for the Atlas Crew Security stack" />
+<meta property="og:locale" content="en_US" />
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={fullTitle} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={ogImage} />
+<meta name="twitter:image:alt" content="Bridge — Service Orchestrator for the Atlas Crew Security stack" />
+
+<!-- Recursive variable font (sans + mono in one file) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Recursive:slnt,wght,CASL,CRSV,MONO@-15..0,300..900,0..1,0..1,0..1&display=swap"
+/>
+
+<!-- JSON-LD: SoftwareApplication for the home page only -->
+{path === '/' && (
+  <script is:inline type="application/ld+json" set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Bridge',
+    alternateName: 'Atlas Crew Bridge',
+    applicationCategory: 'DeveloperApplication',
+    operatingSystem: 'Linux, macOS, Windows',
+    description,
+    url: SITE_URL,
+    image: ogImage,
+    license: 'https://opensource.org/licenses/MIT',
+    author: {
+      '@type': 'Organization',
+      name: 'Atlas Crew Security',
+      url: 'https://atlascrew.dev',
+    },
+    softwareVersion: '0.1.0',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+  })} />
+)}
+
+{path !== '/' && (
+  <script is:inline type="application/ld+json" set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'TechArticle',
+    headline: fullTitle,
+    description,
+    url: canonical,
+    image: ogImage,
+    author: {
+      '@type': 'Organization',
+      name: 'Atlas Crew Security',
+      url: 'https://atlascrew.dev',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Atlas Crew Security',
+      url: 'https://atlascrew.dev',
+    },
+  })} />
+)}
