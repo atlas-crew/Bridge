@@ -1,7 +1,7 @@
 ---
-id: decision-1
+id: adr-0001
 title: Localhost-only deployment shape — defer full token auth
-date: '2026-04-30 09:57'
+date: 2026-04-30
 status: accepted
 ---
 ## Context
